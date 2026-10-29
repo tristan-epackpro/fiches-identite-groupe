@@ -743,6 +743,16 @@ html.epp-dark .mpick-opt:hover{background:rgba(155,249,68,.12);}
 .mpick-opt.on{background:rgba(79,155,134,.14);}
 .mpick-opt input{width:16px;height:16px;accent-color:#4f9b86;cursor:pointer;}
 
+/* ---- Modules par zone : selecteur commun/par zone + en-tete de zone ---- */
+.seg-choice{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);margin-bottom:2px;}
+.seg-btn{border:0;background:none;padding:7px 15px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;transition:.12s;}
+.seg-btn+.seg-btn{border-left:1px solid var(--border);}
+.seg-btn:hover:not(.on){background:rgba(48,87,84,.08);}
+html.epp-dark .seg-btn:hover:not(.on){background:rgba(155,249,68,.1);}
+.seg-btn.on{background:#4f9b86;color:#fff;}
+.zone-head{margin:16px 0 8px;font-weight:800;font-size:14px;color:var(--brand);padding-bottom:5px;border-bottom:2px solid var(--brand);}
+html.epp-dark .zone-head{color:var(--lime);border-bottom-color:rgba(155,249,68,.4);}
+
 /* ---- Fiche recap (lecture seule + impression) ---- */
 .fiche{display:flex;flex-direction:column;gap:18px;}
 .fiche-title{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;}
@@ -1534,13 +1544,13 @@ function parseOptionsUI(xmlText){
 function moduleLegend(){
   var lg=el('div',{class:'mod-legend'});
   lg.innerHTML='<span class="lg"><span class="sw type"></span>'+t('Type = imposé par le siège (un site ne peut pas modifier)','Type = set by HQ (a site cannot change it)')+'</span>'+
-               '<span class="lg"><span class="sw var"></span>'+t('Variable = libre, chaque site configure a sa guise','Variable = free, each site configures as it wants')+'</span>';
+               '<span class="lg"><span class="sw var"></span>'+t('Variable = libre, chaque site configure à sa guise','Variable = free, each site configures as it wants')+'</span>';
   return lg;
 }
-function moduleGrid(te, editable){
+function moduleGrid(mods, editable){
   var g=el('div',{class:'mod-grid'});
   var shown=0;
-  (te.modules||[]).forEach(function(m,i){
+  (mods||[]).forEach(function(m,i){
     if(!m.name && !editable) return; shown++;
     var tile=el('div',{class:'mod-tile '+(m.variable?'var':'type')+(editable?' editable':''),
       title: editable ? t('Cliquer pour basculer Type / Variable','Click to toggle Type / Variable') : ''});
@@ -1554,8 +1564,8 @@ function moduleGrid(te, editable){
 }
 
 /* Construit une image SVG (autonome, palette claire fixe) de la grille 4/ligne. */
-function buildModulesSvg(acc){
-  var mods=(acc.tech.modules||[]).filter(function(m){ return m.name; });
+function buildModulesSvg(acc, modsIn, zoneLabel){
+  var mods=(modsIn||acc.tech.modules||[]).filter(function(m){ return m.name; });
   var cols=4, tw=250, th=76, gap=14, padX=26, padTop=96, padBot=26;
   var rows=Math.max(1, Math.ceil(mods.length/cols));
   var W=padX*2 + cols*tw + (cols-1)*gap;
@@ -1586,7 +1596,7 @@ function buildModulesSvg(acc){
       '<rect x="'+(x+44)+'" y="'+(y+th-24)+'" width="'+flagW+'" height="16" rx="8" fill="'+flagBg+'"/>'+
       '<text x="'+(x+44+flagW/2)+'" y="'+(y+th-12)+'" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="9" font-weight="800" fill="#ffffff" letter-spacing="0.5">'+flag+'</text>';
   });
-  var title=xesc(acc.group.name||t('Grand Compte','Key account'));
+  var title=xesc((acc.group.name||t('Grand Compte','Key account'))+(zoneLabel?(' - '+zoneLabel):''));
   var sub=xesc(t('Modules du paramétrage type','Param type modules')+' - '+mods.length+' '+t('module(s)','module(s)'));
   var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+
     '<rect width="'+W+'" height="'+H+'" fill="#ffffff"/>'+
@@ -1599,10 +1609,10 @@ function buildModulesSvg(acc){
     tiles+'</svg>';
   return svg;
 }
-function exportModulesPng(acc){
-  var mods=(acc.tech.modules||[]).filter(function(m){ return m.name; });
-  if(!mods.length){ eppFlash(t('Aucun module a exporter. Importe un OptionsUI.xml.','No module to export. Import an OptionsUI.xml.'),{type:'warn',timeout:2600}); return; }
-  var svg=buildModulesSvg(acc);
+function exportModulesPng(acc, modsIn, zoneLabel){
+  var mods=(modsIn||acc.tech.modules||[]).filter(function(m){ return m.name; });
+  if(!mods.length){ eppFlash(t('Aucun module à exporter. Importe un OptionsUI.xml.','No module to export. Import an OptionsUI.xml.'),{type:'warn',timeout:2600}); return; }
+  var svg=buildModulesSvg(acc, mods, zoneLabel);
   var url=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml;charset=utf-8'}));
   var img=new Image();
   img.onload=function(){
@@ -1610,7 +1620,7 @@ function exportModulesPng(acc){
     var ctx=c.getContext('2d'); ctx.scale(scale,scale); ctx.drawImage(img,0,0); URL.revokeObjectURL(url);
     try{
       c.toBlob(function(png){ if(!png){ eppFlash(t('Export image impossible.','Image export failed.'),{type:'err',timeout:2600}); return; }
-        var u=URL.createObjectURL(png); var a=el('a',{href:u,download:'modules-'+slug(acc.group.name)+'.png'});
+        var u=URL.createObjectURL(png); var a=el('a',{href:u,download:'modules-'+slug(acc.group.name)+(zoneLabel?('-'+slug(zoneLabel)):'')+'.png'});
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(u); },1000);
         eppFlash(t('Image des modules exportée (PNG).','Modules image exported (PNG).'),{type:'ok',timeout:2200});
       },'image/png');
@@ -1644,7 +1654,7 @@ function blankAccount(){
     internal:{ qm:[], csm:[], cp:'', sales:'', others:[] },
     commercial:{ frameContract:false, priceRef:'', prices:[], consumables:[], consumableNote:'', history:'' },
     deploy:{ sitesEquipped:'', sitesToEquip:'', cadence:'', planningUrl:'', planningFreq:'', planningRecipient:'', planningHide:'', refSiteProvided:false, refSite:'' },
-    tech:{ paramTypeUrl:'', paramLangs:'', modules:[], recurrences:'', managerAccounts:[], updateAccount:'', listingUrl:'', vigilance:[], note:'' },
+    tech:{ paramTypeUrl:'', paramLangs:'', modules:[], moduleScope:'common', zoneModules:{}, recurrences:'', managerAccounts:[], updateAccount:'', listingUrl:'', vigilance:[], note:'' },
     history:[]
   };
 }
@@ -1795,7 +1805,7 @@ function stepFilled(i){
     case 2: var n=CUR.internal; return !!(asList(n.qm).length||asList(n.csm).length||n.others.length);
     case 3: var c=CUR.commercial; return !!(c.frameContract||c.priceRef||c.prices.length||c.consumables.length||c.consumableNote||c.history);
     case 4: var d=CUR.deploy; return !!(d.sitesEquipped||d.sitesToEquip||d.cadence||d.planningUrl||d.refSite);
-    case 5: var te=CUR.tech; return !!(te.paramTypeUrl||(te.modules&&te.modules.length)||(te.managerAccounts&&te.managerAccounts.length)||te.updateAccount||te.listingUrl||te.vigilance.length||te.note);
+    case 5: var te=CUR.tech; var zmN=0; if(te.zoneModules) for(var zk in te.zoneModules){ zmN+=(te.zoneModules[zk]||[]).length; } return !!(te.paramTypeUrl||(te.modules&&te.modules.length)||zmN||(te.managerAccounts&&te.managerAccounts.length)||te.updateAccount||te.listingUrl||te.vigilance.length||te.note);
   }
   return false;
 }
@@ -1900,8 +1910,8 @@ function gcCard(a){
   if(g.multiBrand) metaBits.push(t('Multi-marques','Multi-brand'));
   if(g.multiZone) metaBits.push(t('Multi-zones','Multi-zone'));
   var ne=parseInt(a.deploy.sitesEquipped||0,10)||0, nt=parseInt(a.deploy.sitesToEquip||0,10)||0;
-  if(ne||nt) metaBits.push((ne)+t(' site(s) équipe(s)',' site(s) live')+(nt?(' / '+nt+t(' a équiper',' to go')):''));
-  info.appendChild(el('div',{class:'gc-meta',text:metaBits.join('  -  ')||t('Fiche a compléter','Sheet to complete')}));
+  if(ne||nt) metaBits.push((ne)+t(' site(s) équipe(s)',' site(s) live')+(nt?(' / '+nt+t(' à équiper',' to go')):''));
+  info.appendChild(el('div',{class:'gc-meta',text:metaBits.join('  -  ')||t('Fiche à compléter','Sheet to complete')}));
   top.appendChild(info);
   card.appendChild(top);
 
@@ -2223,7 +2233,7 @@ function stepContacts(box){
           if(v.length!==before) scopePick.__set(v); // reflete l'exclusivite sans fermer le menu
         }, TOUT);
         grid.appendChild(field('Périmètre (zone / type)','Scope (zone / type)', scopePick,
-          {hint:['En multi-zones : "Tout" ou une/plusieurs zones definies a l\'étape Le groupe.','Multi-zone: "All" or one/several zones defined in the Group step.']}));
+          {hint:['En multi-zones : "Tout" ou une/plusieurs zones definies à l\'étape Le groupe.','Multi-zone: "All" or one/several zones defined in the Group step.']}));
       }
       grid.appendChild(field('Compte ePack Manager','ePack Manager account',
         selectField(acctOptions(true), ct.account||'', function(v){ ct.account=v; touch();
@@ -2302,8 +2312,8 @@ function stepComm(box){
   box.appendChild(el('div',{class:'sub-h',text:t('Tarifs négociés','Negotiated prices')}));
   box.appendChild(field('Référence tarifaire (ou lien)','Pricing reference (or link)',
     inputText(cm.priceRef,function(v){ cm.priceRef=v; touch(); },
-      t('Ex. Se référer a la grille tarifaire Salesforce / compte groupement','e.g. See Salesforce pricing grid / group account')),
-    {hint:['Souvent les tarifs renvoient a Salesforce. Tu peux aussi détailler des lignes ci-dessous.','Prices often point to Salesforce. You can also detail lines below.'], col2:true}));
+      t('Ex. Se référer à la grille tarifaire Salesforce / compte groupement','e.g. See Salesforce pricing grid / group account')),
+    {hint:['Souvent les tarifs renvoient à Salesforce. Tu peux aussi détailler des lignes ci-dessous.','Prices often point to Salesforce. You can also detail lines below.'], col2:true}));
   box.appendChild(priceTable(cm.prices, true));
 
   box.appendChild(el('div',{class:'sub-h',text:t('Consommables','Consumables')}));
@@ -2352,11 +2362,11 @@ function priceTable(arr, withCat){
 function stepDeploy(box){
   var d=CUR.deploy;
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Le déploiement sur le parc : volumes, cadence, planning, et le site référence mis a disposition.",
+    "Le déploiement sur le parc : volumes, cadence, planning, et le site référence mis à disposition.",
     "Rollout across the estate: volumes, pace, schedule, and the reference site made available.")}));
   var grid=el('div',{class:'form-grid'});
   grid.appendChild(field('Nombre de sites équipes','Sites already equipped', inputNum(d.sitesEquipped,function(v){ d.sitesEquipped=v; touch(); })));
-  grid.appendChild(field('Nombre de sites a équiper','Sites to equip', inputNum(d.sitesToEquip,function(v){ d.sitesToEquip=v; touch(); })));
+  grid.appendChild(field('Nombre de sites à équiper','Sites to equip', inputNum(d.sitesToEquip,function(v){ d.sitesToEquip=v; touch(); })));
   grid.appendChild(field('Cadence de déploiement','Rollout pace', inputText(d.cadence,function(v){ d.cadence=v; touch(); }, t('Ex. 5 sites / mois','e.g. 5 sites / month'))));
   box.appendChild(grid);
 
@@ -2367,17 +2377,17 @@ function stepDeploy(box){
     {hint:['SharePoint, Drive, Smartsheet...','SharePoint, Drive, Smartsheet...'], col2:true}));
   pgrid.appendChild(field('Fréquence d\'envoi','Sending frequency', inputText(d.planningFreq,function(v){ d.planningFreq=v; touch(); }, t('Ex. mensuel','e.g. monthly'))));
   pgrid.appendChild(field('Destinataire (côté client)','Recipient (client side)', inputText(d.planningRecipient,function(v){ d.planningRecipient=v; touch(); }, t('Ex. contact siège','e.g. HQ contact'))));
-  pgrid.appendChild(field('Infos a masquer avant envoi','Info to hide before sending',
-    inputText(d.planningHide,function(v){ d.planningHide=v; touch(); }, t('Ex. colonnes internes a retirer','e.g. internal columns to remove')),
+  pgrid.appendChild(field('Infos à masquer avant envoi','Info to hide before sending',
+    inputText(d.planningHide,function(v){ d.planningHide=v; touch(); }, t('Ex. colonnes internes à retirer','e.g. internal columns to remove')),
     {hint:['Certaines colonnes ne doivent pas apparaître côté client.','Some columns must not appear on the client side.'], col2:true}));
   box.appendChild(pgrid);
 
   box.appendChild(el('div',{class:'sub-h',text:t('Site référent','Reference site')}));
-  box.appendChild(ynRow('Un site référent / matériel est-il mis a disposition des sièges ?','Is a reference site / hardware provided to HQ?',
+  box.appendChild(ynRow('Un site référent / matériel est-il mis à disposition des sièges ?','Is a reference site / hardware provided to HQ?',
     null,null, d.refSiteProvided, function(v){ d.refSiteProvided=v; touch(); renderEditor($content()); }));
   if(d.refSiteProvided){
     var r=el('div',{class:'reveal'});
-    r.appendChild(field('Détails du site référent / matériel mis a dispo','Reference site / hardware details',
+    r.appendChild(field('Détails du site référent / matériel mis à dispo','Reference site / hardware details',
       textarea(d.refSite,function(v){ d.refSite=v; touch(); },
         t('Ex. site pilote de Lyon, matériel de démo au siège, accès, contact sur place...','e.g. Lyon pilot site, demo hardware at HQ, access, on-site contact...')), {col2:true}));
     box.appendChild(r);
@@ -2388,7 +2398,7 @@ function stepDeploy(box){
 function stepTech(box){
   var te=CUR.tech;
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Infos TECHNIQUES spécifiques a ce groupe (pour la Production/SAV). La procédure standard (Windows, convention de nommage Teamviewer/ePack Manager, étapes d'intégration) reste dans Documize : ici on ne note que ce qui est propre au groupe.",
+    "Infos TECHNIQUES spécifiques à ce groupe (pour la Production/SAV). La procédure standard (Windows, convention de nommage Teamviewer/ePack Manager, étapes d'intégration) reste dans Documize : ici on ne note que ce qui est propre au groupe.",
     "GROUP-SPECIFIC technical info (for Production/SAV). The standard procedure (Windows, Teamviewer/ePack Manager naming, integration steps) stays in Documize: here we only capture what is specific to the group.")}));
 
   // --- Paramétrage type ---
@@ -2403,80 +2413,113 @@ function stepTech(box){
 
   // --- Modules (ordre + noms), importables depuis OptionsUI.xml ---
   box.appendChild(el('div',{class:'sub-h',text:t('Modules (paramétrage type)','Modules (param type)')}));
-  var barM=el('div',{style:'display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px;'});
-  var impBtn=el('button',{class:'btn btn-brand',type:'button',onclick:function(){ importOptionsUI(); }});
-  impBtn.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>'+t('Importer OptionsUI.xml','Import OptionsUI.xml');
-  barM.appendChild(impBtn);
-  var pngBtn=el('button',{class:'btn btn-ghost',type:'button',onclick:function(){ exportModulesPng(CUR); }});
-  pngBtn.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4"/><circle cx="9" cy="9" r="1.4"/></svg>'+t('Exporter l\'image (PNG)','Export image (PNG)');
-  barM.appendChild(pngBtn);
-  if(te.modules.length) barM.appendChild(el('span',{class:'wiz-progress',text:te.modules.length+' '+t('module(s)','module(s)')}));
-  box.appendChild(barM);
-  box.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 10px;',
-    text:t("Importe le OptionsUI.xml du paramétrage type : la grille se remplit (ordre + noms). Par défaut, Température Frigo est en Variable (comme souvent les Utilisateurs). Clique une tuile pour basculer Type / Variable.",
-            "Import the param type OptionsUI.xml: the grid fills in (order + names). By default, Fridge temperature is set to Variable (like Users usually). Click a tile to toggle Type / Variable.")}));
-  box.appendChild(moduleLegend());
-  var gridHost=el('div'); box.appendChild(gridHost);
-  function paintGrid(){ gridHost.innerHTML=''; gridHost.appendChild(moduleGrid(te, true)); }
-  paintGrid();
 
-  function importOptionsUI(){
+  var zones=(CUR.group.zones||[]).filter(Boolean);
+  var perZone=CUR.group.multiZone && zones.length>0;
+  if(perZone){
+    if(te.moduleScope!=='zone') te.moduleScope='common';
+    var chooser=el('div',{class:'seg-choice'});
+    [['common',t('Commun à toutes les zones','Common to all zones')],['zone',t('Par zone','Per zone')]].forEach(function(o){
+      chooser.appendChild(el('button',{type:'button',class:'seg-btn'+(te.moduleScope===o[0]?' on':''),text:o[1],
+        onclick:function(){ te.moduleScope=o[0]; touch(); renderEditor($content()); }}));
+    });
+    box.appendChild(chooser);
+    box.appendChild(el('p',{class:'fld-hint',style:'margin:2px 0 12px;',
+      text:t('"Par zone" : un paramétrage type (OptionsUI.xml) et ses modules propres à chaque zone. Sinon, un seul jeu commun à toutes les zones.',
+             '"Per zone": one param type (OptionsUI.xml) and its own modules per zone. Otherwise, a single set shared by all zones.')}));
+  }
+
+  // Import d'un OptionsUI.xml dans un tableau de modules (get/set), en gardant les choix Type/Variable connus.
+  function importOptionsUIInto(getMods, setMods){
     var inp=el('input',{type:'file',accept:'.xml,text/xml,application/xml',style:'display:none;'});
     inp.addEventListener('change',function(){ var f=inp.files&&inp.files[0]; if(!f) return;
       var r=new FileReader();
       r.onload=function(){
         var mods=parseOptionsUI(r.result);
         if(!mods||!mods.length){ eppFlash(t('Fichier XML non reconnu (OptionsUI.xml attendu).','Unrecognized XML file (OptionsUI.xml expected).'),{type:'err',timeout:3200}); return; }
-        var prev={}; te.modules.forEach(function(m){ prev[(m.name||'').toLowerCase()]=m.variable; });
-        te.modules=mods.map(function(m){
+        var prev={}; (getMods()||[]).forEach(function(m){ prev[(m.name||'').toLowerCase()]=m.variable; });
+        setMods(mods.map(function(m){
           var low=(m.name||'').toLowerCase();
-          var def=/frigo/.test(low); // par défaut en Variable : Temperature Frigo (Utilisateurs = module separe)
+          var def=/frigo/.test(low); // par défaut en Variable : Température Frigo (Utilisateurs = module séparé)
           return { name:m.name, key:m.key, variable: prev.hasOwnProperty(low)?prev[low]:def };
-        });
+        }));
         touch(); renderEditor($content());
-        eppFlash(mods.length+' '+t('modules importes depuis OptionsUI.xml','modules imported from OptionsUI.xml'),{type:'ok',timeout:2400});
+        eppFlash(mods.length+' '+t('modules importés depuis OptionsUI.xml','modules imported from OptionsUI.xml'),{type:'ok',timeout:2400});
       };
       r.readAsText(f);
     });
     document.body.appendChild(inp); inp.click(); setTimeout(function(){ inp.remove(); },0);
   }
 
-  // Liste détaillée (renommer / reordonner / ajouter) repliable
-  var det=el('details',{class:'mod-details'});
-  var sum=el('summary'); sum.innerHTML='<span>'+t('Modifier / renommer / réordonner les modules','Edit / rename / reorder modules')+'</span><svg class="chev ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';
-  det.appendChild(sum);
-  var mwrap=el('div',{class:'rep mod-det-body'});
-  function mdraw(){
-    mwrap.innerHTML='';
-    if(!te.modules.length) mwrap.appendChild(el('div',{class:'empty-note',text:t('Aucun module. Importe un OptionsUI.xml ou ajouté-les a la main.','No module yet. Import an OptionsUI.xml or add them manually.')}));
-    te.modules.forEach(function(m,i){
-      var line=el('div',{class:'rep-line',style:'align-items:center;'});
-      line.appendChild(el('span',{class:'chip',style:'flex:0 0 auto;align-self:center;',text:(i+1)+''}));
-      line.appendChild(inputText(m.name,function(v){ m.name=v; touch(); }, t('Nom du module','Module name')));
-      var vtog=el('div',{class:'yn-ctl',style:'flex:0 0 auto;'});
-      vtog.appendChild(el('span',{class:'yn-state'+(m.variable?' on':''),style:'min-width:64px;',text:m.variable?t('Variable','Variable'):t('Type','Type')}));
-      var sw=el('div',{class:'epp-switch epp-switch-onoff epp-switch-sm'+(m.variable?' epp-on':''),role:'switch',tabindex:'0',title:t('Variable = modifiable par site','Variable = editable per site')});
-      sw.innerHTML='<span class="epp-knob"></span>';
-      sw.addEventListener('click',function(){ m.variable=!m.variable; touch(); mdraw(); paintGrid(); });
-      vtog.appendChild(sw); line.appendChild(vtog);
-      var up=el('button',{class:'iconbtn-sm',title:t('Monter','Up'),onclick:function(){ if(i>0){ var x=te.modules.splice(i,1)[0]; te.modules.splice(i-1,0,x); touch(); mdraw(); paintGrid(); } }});
-      up.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
-      var down=el('button',{class:'iconbtn-sm',title:t('Descendre','Down'),onclick:function(){ if(i<te.modules.length-1){ var x=te.modules.splice(i,1)[0]; te.modules.splice(i+1,0,x); touch(); mdraw(); paintGrid(); } }});
-      down.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
-      var del=el('button',{class:'iconbtn-sm danger',title:t('Retirer','Remove'),onclick:function(){ te.modules.splice(i,1); touch(); mdraw(); paintGrid(); }});
-      del.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>';
-      line.appendChild(up); line.appendChild(down); line.appendChild(del);
-      mwrap.appendChild(line);
-    });
-    var add=el('button',{class:'btn btn-ghost rep-add',onclick:function(){ te.modules.push({name:'',key:'',variable:false}); touch(); mdraw(); paintGrid(); }});
-    add.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'+t('Ajouter un module','Add a module');
-    mwrap.appendChild(add);
-  }
-  mdraw(); det.appendChild(mwrap); box.appendChild(det);
+  // Un bloc complet de modules (barre d'import + grille + liste éditable) pour un jeu de modules donné.
+  function modulesBlock(parent, getMods, setMods, zoneLabel, showHint){
+    var barM=el('div',{style:'display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px;'});
+    var impBtn=el('button',{class:'btn btn-brand',type:'button',onclick:function(){ importOptionsUIInto(getMods,setMods); }});
+    impBtn.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>'+t('Importer OptionsUI.xml','Import OptionsUI.xml');
+    barM.appendChild(impBtn);
+    var pngBtn=el('button',{class:'btn btn-ghost',type:'button',onclick:function(){ exportModulesPng(CUR, getMods(), zoneLabel); }});
+    pngBtn.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM4 15l5-5 4 4 3-3 4 4"/><circle cx="9" cy="9" r="1.4"/></svg>'+t('Exporter l\'image (PNG)','Export image (PNG)');
+    barM.appendChild(pngBtn);
+    if((getMods()||[]).length) barM.appendChild(el('span',{class:'wiz-progress',text:getMods().length+' '+t('module(s)','module(s)')}));
+    parent.appendChild(barM);
+    if(showHint) parent.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 10px;',
+      text:t("Importe le OptionsUI.xml du paramétrage type : la grille se remplit (ordre + noms). Par défaut, Température Frigo est en Variable (comme souvent les Utilisateurs). Clique une tuile pour basculer Type / Variable.",
+              "Import the param type OptionsUI.xml: the grid fills in (order + names). By default, Fridge temperature is set to Variable (like Users usually). Click a tile to toggle Type / Variable.")}));
+    parent.appendChild(moduleLegend());
+    var gridHost=el('div'); parent.appendChild(gridHost);
+    function paintGrid(){ gridHost.innerHTML=''; gridHost.appendChild(moduleGrid(getMods(), true)); }
+    paintGrid();
 
-  box.appendChild(field('Modules a récurrences a vérifier','Recurring modules to check',
+    var det=el('details',{class:'mod-details'});
+    var sum=el('summary'); sum.innerHTML='<span>'+t('Modifier / renommer / réordonner les modules','Edit / rename / reorder modules')+'</span><svg class="chev ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';
+    det.appendChild(sum);
+    var mwrap=el('div',{class:'rep mod-det-body'});
+    function mdraw(){
+      var mods=getMods();
+      mwrap.innerHTML='';
+      if(!mods.length) mwrap.appendChild(el('div',{class:'empty-note',text:t('Aucun module. Importe un OptionsUI.xml ou ajoute-les à la main.','No module yet. Import an OptionsUI.xml or add them manually.')}));
+      mods.forEach(function(m,i){
+        var line=el('div',{class:'rep-line',style:'align-items:center;'});
+        line.appendChild(el('span',{class:'chip',style:'flex:0 0 auto;align-self:center;',text:(i+1)+''}));
+        line.appendChild(inputText(m.name,function(v){ m.name=v; touch(); }, t('Nom du module','Module name')));
+        var vtog=el('div',{class:'yn-ctl',style:'flex:0 0 auto;'});
+        vtog.appendChild(el('span',{class:'yn-state'+(m.variable?' on':''),style:'min-width:64px;',text:m.variable?t('Variable','Variable'):t('Type','Type')}));
+        var sw=el('div',{class:'epp-switch epp-switch-onoff epp-switch-sm'+(m.variable?' epp-on':''),role:'switch',tabindex:'0',title:t('Variable = modifiable par site','Variable = editable per site')});
+        sw.innerHTML='<span class="epp-knob"></span>';
+        sw.addEventListener('click',function(){ m.variable=!m.variable; touch(); mdraw(); paintGrid(); });
+        vtog.appendChild(sw); line.appendChild(vtog);
+        var up=el('button',{class:'iconbtn-sm',title:t('Monter','Up'),onclick:function(){ if(i>0){ var x=mods.splice(i,1)[0]; mods.splice(i-1,0,x); touch(); mdraw(); paintGrid(); } }});
+        up.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>';
+        var down=el('button',{class:'iconbtn-sm',title:t('Descendre','Down'),onclick:function(){ if(i<mods.length-1){ var x=mods.splice(i,1)[0]; mods.splice(i+1,0,x); touch(); mdraw(); paintGrid(); } }});
+        down.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
+        var del=el('button',{class:'iconbtn-sm danger',title:t('Retirer','Remove'),onclick:function(){ mods.splice(i,1); touch(); mdraw(); paintGrid(); }});
+        del.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>';
+        line.appendChild(up); line.appendChild(down); line.appendChild(del);
+        mwrap.appendChild(line);
+      });
+      var add=el('button',{class:'btn btn-ghost rep-add',onclick:function(){ getMods().push({name:'',key:'',variable:false}); touch(); mdraw(); paintGrid(); }});
+      add.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'+t('Ajouter un module','Add a module');
+      mwrap.appendChild(add);
+    }
+    mdraw(); det.appendChild(mwrap); parent.appendChild(det);
+  }
+
+  if(perZone && te.moduleScope==='zone'){
+    te.zoneModules=te.zoneModules||{};
+    zones.forEach(function(zn,zi){
+      box.appendChild(el('div',{class:'zone-head',text:zn}));
+      modulesBlock(box,
+        function(){ if(!Array.isArray(te.zoneModules[zn])) te.zoneModules[zn]=[]; return te.zoneModules[zn]; },
+        function(arr){ te.zoneModules[zn]=arr; },
+        zn, zi===0);
+    });
+  } else {
+    modulesBlock(box, function(){ return te.modules; }, function(arr){ te.modules=arr; }, '', true);
+  }
+
+  box.appendChild(field('Modules à récurrences à vérifier','Recurring modules to check',
     textarea(te.recurrences,function(v){ te.recurrences=v; touch(); },
-      t('Ex. Nettoyage poste, Température Frigos, ou tout autre module a récurrences.','e.g. Station cleaning, Fridge temperature, or any other recurring module.')), {col2:true}));
+      t('Ex. Nettoyage poste, Température Frigos, ou tout autre module à récurrences.','e.g. Station cleaning, Fridge temperature, or any other recurring module.')), {col2:true}));
 
   // --- Comptes ePack Manager ---
   box.appendChild(el('div',{class:'sub-h',text:t('Comptes ePack Manager','ePack Manager accounts')}));
@@ -2527,7 +2570,7 @@ function stepTech(box){
 
   box.appendChild(field('Compte Update ePack (email)','ePack Update account (email)',
     inputText(te.updateAccount,function(v){ te.updateAccount=v; touch(); }, t('Ex. updategroupe@epack-hygiène.fr','e.g. updategroup@epack-hygiene.fr')),
-    {hint:['Notre compte interne a assigner a la solution pour les mises a jour.','Our internal account to assign to the solution for updates.'], col2:true}));
+    {hint:['Notre compte interne à assigner à la solution pour les mises à jour.','Our internal account to assign to the solution for updates.'], col2:true}));
 
   // --- Listing ---
   box.appendChild(el('div',{class:'sub-h',text:t('Listing / Rapport d\'intervention','Listing / Intervention report')}));
@@ -2609,7 +2652,7 @@ function renderFiche(c){
   var subBits=[];
   if(g.multiBrand) subBits.push(t('Multi-marques','Multi-brand'));
   if(g.multiZone) subBits.push(t('Multi-zones / pays','Multi-zone / country'));
-  subBits.push(t('Mis a jour le','Updated')+' '+new Date(a.updatedAt||Date.now()).toLocaleDateString(EN()?'en-GB':'fr-FR'));
+  subBits.push(t('Mis à jour le','Updated')+' '+new Date(a.updatedAt||Date.now()).toLocaleDateString(EN()?'en-GB':'fr-FR'));
   tcol.appendChild(el('div',{class:'ft-sub',text:subBits.join('  -  ')}));
   titleRow.appendChild(tcol);
   head.appendChild(titleRow);
@@ -2672,12 +2715,12 @@ function renderFiche(c){
   var planLink = d.planningUrl ? ('<a class="link-ext" href="'+esc(d.planningUrl)+'" target="_blank" rel="noopener">'+esc(d.planningUrl)+'</a>') : null;
   var dPairs=[
     [t('Sites équipes','Sites equipped'), (d.sitesEquipped!==''&&d.sitesEquipped!=null)?String(d.sitesEquipped):null],
-    [t('Sites a équiper','Sites to equip'), (d.sitesToEquip!==''&&d.sitesToEquip!=null)?String(d.sitesToEquip):null],
+    [t('Sites à équiper','Sites to equip'), (d.sitesToEquip!==''&&d.sitesToEquip!=null)?String(d.sitesToEquip):null],
     [t('Cadence','Pace'), d.cadence],
     [t('Tableau / retroplanning','Rollout table / schedule'), planLink, planLink?'html':null],
     [t('Fréquence d\'envoi du tableau','Table sending frequency'), d.planningFreq||null],
     [t('Destinataire (client)','Recipient (client)'), d.planningRecipient||null],
-    [t('Infos a masquer avant envoi','Info to hide before sending'), d.planningHide||null],
+    [t('Infos à masquer avant envoi','Info to hide before sending'), d.planningHide||null],
     [t('Site référent / matériel sièges','Reference site / HQ hardware'), d.refSiteProvided?(d.refSite||t('Oui (a détailler)','Yes (to detail)')):t('Non','No')]
   ];
   fiche.appendChild(sec('Déploiement','Rollout', dl(dPairs), STEP_OWNERS[4]));
@@ -2692,13 +2735,27 @@ function renderFiche(c){
     [t('Lien paramétrage type','Param type link'), ptLink, ptLink?'html':null],
     [t('Langue(s)','Language(s)'), te.paramLangs||null]
   ]));
-  var mods = (te.modules||[]).filter(function(m){ return m.name; });
-  if(mods.length){
-    techWrap.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 6px;',text:t('Modules (ordre et paramétrage)','Modules (order and setup)')}));
-    techWrap.appendChild(moduleLegend());
-    techWrap.appendChild(moduleGrid(te, false));
+  var zonesF=(g.zones||[]).filter(Boolean);
+  var perZoneF=g.multiZone && te.moduleScope==='zone' && zonesF.length>0 && te.zoneModules;
+  if(perZoneF){
+    var anyZ=false;
+    zonesF.forEach(function(zn){
+      var zm=(te.zoneModules[zn]||[]).filter(function(m){ return m.name; });
+      if(!zm.length) return; anyZ=true;
+      techWrap.appendChild(el('div',{class:'fld-lbl',style:'margin:6px 0 6px;',text:t('Modules','Modules')+' - '+zn}));
+      techWrap.appendChild(moduleLegend());
+      techWrap.appendChild(moduleGrid(zm, false));
+    });
+    if(!anyZ){ /* rien a afficher */ }
+  } else {
+    var mods = (te.modules||[]).filter(function(m){ return m.name; });
+    if(mods.length){
+      techWrap.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 6px;',text:t('Modules (ordre et paramétrage)','Modules (order and setup)')}));
+      techWrap.appendChild(moduleLegend());
+      techWrap.appendChild(moduleGrid(mods, false));
+    }
   }
-  if(te.recurrences) techWrap.appendChild(dl([[t('Modules a récurrences a vérifier','Recurring modules to check'), te.recurrences]]));
+  if(te.recurrences) techWrap.appendChild(dl([[t('Modules à récurrences à vérifier','Recurring modules to check'), te.recurrences]]));
   // Comptes
   techWrap.appendChild(el('div',{class:'sub-h',style:'margin:6px 0 0;',text:t('Comptes ePack Manager','ePack Manager accounts')}));
   var accts=allManagerAccounts(a);
@@ -2857,6 +2914,8 @@ function normalizeAccount(a){
   a.tech=Object.assign({},b.tech,a.tech||{});
   if(!Array.isArray(a.tech.vigilance)) a.tech.vigilance=[];
   if(!Array.isArray(a.tech.managerAccounts)) a.tech.managerAccounts=[];
+  if(a.tech.moduleScope!=='zone') a.tech.moduleScope='common';
+  if(!a.tech.zoneModules || typeof a.tech.zoneModules!=='object') a.tech.zoneModules={};
   if(a.tech.superAdminName||a.tech.superAdminEmail){ a.tech.managerAccounts.push({name:a.tech.superAdminName||'',email:a.tech.superAdminEmail||'',type:'super'}); }
   delete a.tech.superAdminName; delete a.tech.superAdminEmail;
   // Migration : ancienne liste variableModules -> modules {name, variable:true}
@@ -2870,7 +2929,7 @@ function normalizeAccount(a){
 }
 function askDelete(a){
   confirmBox(t('Supprimer cette fiche ?','Delete this sheet?'),
-    t('La fiche "'+(a.group.name||'(sans nom)')+'" sera définitivement supprimée de ce navigateur. Pense a l\'exporter avant si besoin.',
+    t('La fiche "'+(a.group.name||'(sans nom)')+'" sera définitivement supprimée de ce navigateur. Pense à l\'exporter avant si besoin.',
       'The sheet "'+(a.group.name||'(untitled)')+'" will be permanently removed from this browser. Export it first if needed.'),
     t('Supprimer','Delete'), function(){
       var i=DB.accounts.indexOf(a); if(i>=0) DB.accounts.splice(i,1); save();
@@ -2936,7 +2995,7 @@ function askIdentity(){
   modal.appendChild(head);
   ov.addEventListener('click',function(e){ if(e.target===ov) ov.remove(); });
   var body=el('div',{class:'em-body',style:'max-height:72vh;overflow:auto;'});
-  body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 6px;',text:t('Sélectionné-toi dans la liste : la vue s\'adapté a ton rôle (modifiable en haut a droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
+  body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 6px;',text:t('Sélectionné-toi dans la liste : la vue s\'adapté à ton rôle (modifiable en haut à droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
   var glist=el('div',{class:'id-grid'});
   function grp(txt, role){ glist.appendChild(el('div',{class:'id-grp em-lbl'+(role?(' role-pill '+rcClass(role)):''),text:txt})); }
   function pick(label, token){ glist.appendChild(el('button',{class:'btn btn-ghost id-opt',text:label,onclick:function(){ ov.remove(); setUserFromToken(token); }})); }
