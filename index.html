@@ -723,6 +723,26 @@ html.epp-dark .alpha-bar button.active:hover:not(:disabled){background:var(--lim
 .epp-switch.epp-switch-sm{width:28px;}
 .epp-switch.epp-switch-sm.epp-on .epp-knob{left:7px;}
 
+/* ---- Menu deroulant a choix multiples (CSM / QM) ---- */
+.mpick{position:relative;}
+.mpick-btn{display:flex;align-items:center;gap:8px;width:100%;min-height:38px;text-align:left;cursor:pointer;padding:5px 10px;}
+.mpick-btn:hover{border-color:var(--brand);}
+.mpick-ph{color:var(--muted);flex:1 1 auto;}
+.mpick-chips{display:flex;flex-wrap:wrap;gap:5px;flex:1 1 auto;}
+.mpick-chip{display:inline-flex;align-items:center;gap:6px;background:#4f9b86;color:#fff;border-radius:7px;padding:2px 4px 2px 9px;font-size:12px;font-weight:700;}
+.mpick-x{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;font-size:14px;line-height:1;cursor:pointer;opacity:.85;}
+.mpick-x:hover{background:rgba(0,0,0,.22);opacity:1;}
+.mpick-chev{flex:0 0 auto;width:16px;height:16px;color:var(--muted);margin-left:auto;}
+.mpick-chev svg{width:16px;height:16px;}
+.mpick-panel{position:absolute;z-index:40;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;box-shadow:0 10px 26px rgba(0,0,0,.18);padding:5px;max-height:240px;overflow:auto;}
+html.epp-dark .mpick-panel{box-shadow:0 10px 26px rgba(0,0,0,.5);}
+.mpick-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);}
+.mpick-opt:hover{background:rgba(48,87,84,.09);}
+html.epp-dark .mpick-opt:hover{background:rgba(155,249,68,.12);}
+.mpick-opt.on{background:rgba(79,155,134,.14);}
+.mpick-opt input{width:16px;height:16px;accent-color:#4f9b86;cursor:pointer;}
+
 /* ---- Fiche recap (lecture seule + impression) ---- */
 .fiche{display:flex;flex-direction:column;gap:18px;}
 .fiche-title{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;}
@@ -1513,7 +1533,7 @@ function parseOptionsUI(xmlText){
 /* ---------- Grille visuelle des modules (Type / Variable) ---------- */
 function moduleLegend(){
   var lg=el('div',{class:'mod-legend'});
-  lg.innerHTML='<span class="lg"><span class="sw type"></span>'+t('Type = impose par le siege (un site ne peut pas modifier)','Type = set by HQ (a site cannot change it)')+'</span>'+
+  lg.innerHTML='<span class="lg"><span class="sw type"></span>'+t('Type = imposé par le siège (un site ne peut pas modifier)','Type = set by HQ (a site cannot change it)')+'</span>'+
                '<span class="lg"><span class="sw var"></span>'+t('Variable = libre, chaque site configure a sa guise','Variable = free, each site configures as it wants')+'</span>';
   return lg;
 }
@@ -1567,7 +1587,7 @@ function buildModulesSvg(acc){
       '<text x="'+(x+44+flagW/2)+'" y="'+(y+th-12)+'" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="9" font-weight="800" fill="#ffffff" letter-spacing="0.5">'+flag+'</text>';
   });
   var title=xesc(acc.group.name||t('Grand Compte','Key account'));
-  var sub=xesc(t('Modules du parametrage type','Param type modules')+' - '+mods.length+' '+t('module(s)','module(s)'));
+  var sub=xesc(t('Modules du paramétrage type','Param type modules')+' - '+mods.length+' '+t('module(s)','module(s)'));
   var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'">'+
     '<rect width="'+W+'" height="'+H+'" fill="#ffffff"/>'+
     '<text x="'+padX+'" y="40" font-family="Helvetica,Arial,sans-serif" font-size="22" font-weight="800" fill="#305754">'+title+'</text>'+
@@ -1592,7 +1612,7 @@ function exportModulesPng(acc){
       c.toBlob(function(png){ if(!png){ eppFlash(t('Export image impossible.','Image export failed.'),{type:'err',timeout:2600}); return; }
         var u=URL.createObjectURL(png); var a=el('a',{href:u,download:'modules-'+slug(acc.group.name)+'.png'});
         document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){ URL.revokeObjectURL(u); },1000);
-        eppFlash(t('Image des modules exportee (PNG).','Modules image exported (PNG).'),{type:'ok',timeout:2200});
+        eppFlash(t('Image des modules exportée (PNG).','Modules image exported (PNG).'),{type:'ok',timeout:2200});
       },'image/png');
     }catch(e){ eppFlash(t('Export image impossible.','Image export failed.'),{type:'err',timeout:2600}); }
   };
@@ -1605,6 +1625,9 @@ function firstLetter(name){ var s=String(name||'').trim().normalize('NFD').repla
 /* Comparaison de noms tolerante (ordre nom/prenom, accents, ponctuation). */
 function nameKey(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(Boolean).sort().join(' '); }
 function nameMatch(a,b){ var ka=nameKey(a),kb=nameKey(b); return !!ka&&ka===kb; }
+/* Normalise une valeur en liste de noms (gere l'ancien format chaine). */
+function asList(v){ return Array.isArray(v)?v.filter(function(x){return x&&String(x).trim();}):((v&&String(v).trim())?[v]:[]); }
+function listMatch(arr,name){ return asList(arr).some(function(x){ return nameMatch(x,name); }); }
 
 /* ---------- Stockage ---------- */
 var KEY='eppGC_v1';
@@ -1612,20 +1635,20 @@ var DB={ accounts:[] };
 function load(){ try{ var raw=localStorage.getItem(KEY); if(raw){ var o=JSON.parse(raw); if(o&&o.accounts) DB=o; } }catch(e){} }
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(DB)); }catch(e){} }
 
-/* ---------- Modele d'une fiche ---------- */
+/* ---------- Modèle d'une fiche ---------- */
 function blankAccount(){
   return {
     id: uid(), updatedAt: Date.now(),
     group:{ name:'', multiBrand:false, brands:[''], multiZone:false, zones:[''], sfSame:true, sfDiff:'' },
     contacts:[ blankContact() ],
-    internal:{ qm:'', csm:'', cp:'', sales:'', others:[] },
+    internal:{ qm:[], csm:[], cp:'', sales:'', others:[] },
     commercial:{ frameContract:false, priceRef:'', prices:[], consumables:[], consumableNote:'', history:'' },
     deploy:{ sitesEquipped:'', sitesToEquip:'', cadence:'', planningUrl:'', planningFreq:'', planningRecipient:'', planningHide:'', refSiteProvided:false, refSite:'' },
     tech:{ paramTypeUrl:'', paramLangs:'', modules:[], recurrences:'', managerAccounts:[], updateAccount:'', listingUrl:'', vigilance:[], note:'' },
     history:[]
   };
 }
-function blankContact(){ return { firstName:'', lastName:'', role:'', email:'', phone:'', scope:'', account:'' }; }
+function blankContact(){ return { firstName:'', lastName:'', role:'', email:'', phone:'', scope:[], account:'' }; }
 
 /* Types de comptes ePack Manager + libelles/regles */
 var ACCT_TYPES=['super','admin','user'];
@@ -1638,7 +1661,7 @@ function acctOptions(withNone){
 /* Liste consolidee des comptes manager : contacts siege flagges + comptes hors contacts. */
 function allManagerAccounts(acc){
   var out=[];
-  (acc.contacts||[]).forEach(function(c){ if(c.account){ var nm=((c.firstName||'')+' '+(c.lastName||'')).trim(); out.push({name:nm||(c.email||'-'), email:c.email||'', type:c.account, source:'contact', zone:c.scope||''}); } });
+  (acc.contacts||[]).forEach(function(c){ if(c.account){ var nm=((c.firstName||'')+' '+(c.lastName||'')).trim(); out.push({name:nm||(c.email||'-'), email:c.email||'', type:c.account, source:'contact', zone:asList(c.scope).join(', ')}); } });
   (acc.tech.managerAccounts||[]).forEach(function(m){ if(m.name||m.email) out.push({name:m.name||'-', email:m.email||'', type:m.type||'user', source:'other', zone:''}); });
   return out;
 }
@@ -1650,24 +1673,24 @@ function superAdminIssue(acc){
   return false;
 }
 
-/* ---------- Etapes de l'assistant ---------- */
+/* ---------- Étapes de l'assistant ---------- */
 var STEPS=[
   { key:'group',   fr:'Le groupe',             en:'The group' },
-  { key:'contacts',fr:'Contacts siege',        en:'HQ contacts' },
-  { key:'team',    fr:'Notre equipe',          en:'Our team' },
+  { key:'contacts',fr:'Contacts siège',        en:'HQ contacts' },
+  { key:'team',    fr:'Notre équipe',          en:'Our team' },
   { key:'comm',    fr:'Commercial',            en:'Commercial' },
-  { key:'deploy',  fr:'Deploiement',           en:'Rollout' },
-  { key:'tech',    fr:'Technique & parametrages', en:'Technical & setup' },
-  { key:'fiche',   fr:'Fiche recapitulative',  en:'Summary sheet' }
+  { key:'deploy',  fr:'Déploiement',           en:'Rollout' },
+  { key:'tech',    fr:'Technique & paramétrages', en:'Technical & setup' },
+  { key:'fiche',   fr:'Fiche récapitulative',  en:'Summary sheet' }
 ];
-var LAST_FORM=5; // derniere etape formulaire (la 6 = recap)
+var LAST_FORM=5; // derniere étape formulaire (la 6 = recap)
 
 /* ---------- Annuaire interne (CSM / QM attitres) ---------- */
 var CSM_LIST=['Guillaume TAVERNIERS','Lauriane GOUISSEM','Cynthia LOBET','Marie VERDIER','Gerda MEVEL-DE BACKER'];
 var QM_LIST=['Sylvain HAMELIN','Nathan LAFEZ','Marion LE STANG'];
 var CSM_QM={ 'Guillaume TAVERNIERS':'Sylvain HAMELIN','Lauriane GOUISSEM':'Nathan LAFEZ','Cynthia LOBET':'Marion LE STANG' };
 
-/* ---------- Matrice de responsabilite (qui renseigne quoi) ---------- */
+/* ---------- Matrice de responsabilite (qui renseigné quoi) ---------- */
 var ROLE_LABEL={ sales:'KAM', csm:'CSM', qm:'QM', cp:'CP', support:'CS' };
 var ROLE_SHORT=ROLE_LABEL;
 var ROLE_FULL={ sales:'KAM (Key Account Manager)', csm:'CSM (Customer Success Manager)', qm:'QM (Quality Manager)', cp:'CP (Customer Planner)', support:'CS (Customer Support)' };
@@ -1718,7 +1741,7 @@ function $content(){ return document.querySelector('.content'); }
 function $side(){ return document.querySelector('.side'); }
 
 /* =========================================================================
-   SIDEBAR : navigation appli + rail d'etapes
+   SIDEBAR : navigation appli + rail d'étapes
    ========================================================================= */
 function buildSidebarNav(){
   var side=$side(); if(!side) return;
@@ -1743,7 +1766,7 @@ function buildSidebarNav(){
   host.appendChild(navItem(IC_HOME, t('Groupes','Groups'), VIEW==='home', goHome));
   host.appendChild(navItem(IC_ADD, t('Nouvelle fiche','New sheet'), false, newAccount));
 
-  // Rail d'etapes quand une fiche est ouverte
+  // Rail d'étapes quand une fiche est ouverte
   if(CUR && (VIEW==='editor'||VIEW==='fiche')){
     host.appendChild(el('div',{class:'nav-lbl',style:'display:block;margin-top:14px;',
       text:(CUR.group.name||t('Fiche en cours','Current sheet'))}));
@@ -1762,14 +1785,14 @@ function buildSidebarNav(){
   }
 }
 
-/* Une etape est-elle "remplie" (pour la coche de progression) ? */
+/* Une étape est-elle "remplie" (pour la coche de progression) ? */
 function stepFilled(i){
   if(!CUR) return false;
   var g=CUR.group;
   switch(i){
     case 0: return !!(g.name&&g.name.trim());
     case 1: return CUR.contacts.some(function(c){ return c.lastName||c.firstName||c.email||c.phone; });
-    case 2: var n=CUR.internal; return !!(n.qm||n.csm||n.cp||n.sales||n.others.length);
+    case 2: var n=CUR.internal; return !!(asList(n.qm).length||asList(n.csm).length||n.others.length);
     case 3: var c=CUR.commercial; return !!(c.frameContract||c.priceRef||c.prices.length||c.consumables.length||c.consumableNote||c.history);
     case 4: var d=CUR.deploy; return !!(d.sitesEquipped||d.sitesToEquip||d.cadence||d.planningUrl||d.refSite);
     case 5: var te=CUR.tech; return !!(te.paramTypeUrl||(te.modules&&te.modules.length)||(te.managerAccounts&&te.managerAccounts.length)||te.updateAccount||te.listingUrl||te.vigilance.length||te.note);
@@ -1802,7 +1825,7 @@ function renderAll(){
    VUE ACCUEIL : liste des Grands Comptes
    ========================================================================= */
 function renderHome(c){
-  setHead(t('Fiches identite groupe','Group identity sheets'), t('Fiches identite des groupes Grands Comptes','Key accounts group identity sheets'));
+  setHead(t('Fiches identité groupe','Group identity sheets'), t('Fiches identité des groupes Grands Comptes','Key accounts group identity sheets'));
 
   var bar=el('div',{class:'toolbar'});
   var btnNew=el('button',{class:'btn btn-brand',onclick:newAccount});
@@ -1821,10 +1844,10 @@ function renderHome(c){
     var eb=el('div',{class:'panel-b gc-empty'});
     eb.innerHTML='<svg viewBox="0 0 512 512"><path d="M64 80v352h384V176H272L224 80H64z" fill="none" stroke="currentColor" stroke-width="28" stroke-linejoin="round"/></svg>'+
       '<h3>'+esc(t('Aucune fiche pour le moment','No sheet yet'))+'</h3>'+
-      '<p>'+esc(t("Cree ta premiere fiche Grand Compte, ou importe un fichier partage par un collegue.",
+      '<p>'+esc(t("Créé ta première fiche Grand Compte, ou importe un fichier partage par un collegue.",
                   "Create your first key-account sheet, or import a file shared by a colleague."))+'</p>';
     var row=el('div',{style:'display:flex;gap:10px;justify-content:center;flex-wrap:wrap;'});
-    var b1=el('button',{class:'btn btn-brand',onclick:newAccount,text:t('Creer une fiche','Create a sheet')});
+    var b1=el('button',{class:'btn btn-brand',onclick:newAccount,text:t('Créer une fiche','Create a sheet')});
     var b2=el('button',{class:'btn btn-ghost',onclick:importFile,text:t('Importer','Import')});
     row.appendChild(b1); row.appendChild(b2); eb.appendChild(row);
     e.appendChild(eb); c.appendChild(e); return;
@@ -1860,8 +1883,8 @@ function gcCard(a){
   card.appendChild(bDel);
   // Badge "propriete" : si la personne identifiee (QM/CSM) est responsable de ce groupe
   if(USER.name){
-    var ownRole = (USER.role==='qm' && nameMatch(a.internal.qm, USER.name)) ? 'qm'
-                : (USER.role==='csm' && nameMatch(a.internal.csm, USER.name)) ? 'csm' : '';
+    var ownRole = (USER.role==='qm' && listMatch(a.internal.qm, USER.name)) ? 'qm'
+                : (USER.role==='csm' && listMatch(a.internal.csm, USER.name)) ? 'csm' : '';
     if(ownRole){
       card.classList.add('has-own');
       var col = ownRole==='qm' ? '#2563eb' : '#1f9d55';
@@ -1877,8 +1900,8 @@ function gcCard(a){
   if(g.multiBrand) metaBits.push(t('Multi-marques','Multi-brand'));
   if(g.multiZone) metaBits.push(t('Multi-zones','Multi-zone'));
   var ne=parseInt(a.deploy.sitesEquipped||0,10)||0, nt=parseInt(a.deploy.sitesToEquip||0,10)||0;
-  if(ne||nt) metaBits.push((ne)+t(' site(s) equipe(s)',' site(s) live')+(nt?(' / '+nt+t(' a equiper',' to go')):''));
-  info.appendChild(el('div',{class:'gc-meta',text:metaBits.join('  -  ')||t('Fiche a completer','Sheet to complete')}));
+  if(ne||nt) metaBits.push((ne)+t(' site(s) équipe(s)',' site(s) live')+(nt?(' / '+nt+t(' a équiper',' to go')):''));
+  info.appendChild(el('div',{class:'gc-meta',text:metaBits.join('  -  ')||t('Fiche a compléter','Sheet to complete')}));
   top.appendChild(info);
   card.appendChild(top);
 
@@ -1889,8 +1912,8 @@ function gcCard(a){
 
   // Personnes en charge : CSM puis QM, empiles sous les autres tags
   var ppl=el('div',{class:'gc-people'});
-  if(a.internal.csm) ppl.appendChild(el('span',{class:'chip role-pill rc-csm',text:'CSM: '+a.internal.csm}));
-  if(a.internal.qm) ppl.appendChild(el('span',{class:'chip role-pill rc-qm',text:'QM: '+a.internal.qm}));
+  asList(a.internal.csm).forEach(function(nm){ ppl.appendChild(el('span',{class:'chip role-pill rc-csm',text:'CSM: '+nm})); });
+  asList(a.internal.qm).forEach(function(nm){ ppl.appendChild(el('span',{class:'chip role-pill rc-qm',text:'QM: '+nm})); });
   if(ppl.children.length) card.appendChild(ppl);
 
   var n=progress(a);
@@ -1912,17 +1935,17 @@ function gcCard(a){
 }
 
 /* =========================================================================
-   VUE EDITEUR : une etape du formulaire
+   VUE EDITEUR : une étape du formulaire
    ========================================================================= */
 function touch(){ CUR.updatedAt=Date.now(); save(); }
 
 /* ---------- Historique des modifications (par section) ---------- */
 var SNAP=null;
 var HIST_SECTIONS=['group','contacts','internal','commercial','deploy','tech'];
-var SECTION_LABELS={group:['Le groupe','The group'],contacts:['Contacts siege','HQ contacts'],internal:['Notre equipe','Our team'],commercial:['Commercial','Commercial'],deploy:['Deploiement','Rollout'],tech:['Technique & parametrages','Technical & setup']};
+var SECTION_LABELS={group:['Le groupe','The group'],contacts:['Contacts siège','HQ contacts'],internal:['Notre équipe','Our team'],commercial:['Commercial','Commercial'],deploy:['Déploiement','Rollout'],tech:['Technique & paramétrages','Technical & setup']};
 function sectionData(a){ var o={}; HIST_SECTIONS.forEach(function(k){ o[k]=JSON.stringify(a[k]); }); return o; }
 function snapshot(){ SNAP = CUR ? sectionData(CUR) : null; }
-function currentUserLabel(){ return USER.name || (USER.role&&USER.role!=='all'?ROLE_LABEL[USER.role]:'') || t('(non identifie)','(unidentified)'); }
+function currentUserLabel(){ return USER.name || (USER.role&&USER.role!=='all'?ROLE_LABEL[USER.role]:'') || t('(non identifié)','(unidentified)'); }
 function pushHistory(action, sections){ if(!CUR) return; if(!Array.isArray(CUR.history)) CUR.history=[]; CUR.history.push({ts:Date.now(), user:currentUserLabel(), action:action, sections:sections||[]}); }
 function logSave(){
   if(!CUR){ return; }
@@ -1962,6 +1985,58 @@ function inputList(val, list, onInput, ph){
   i.addEventListener('input',function(){ onInput(i.value); });
   var wrap=el('span',{style:'display:block;position:relative;'}); wrap.appendChild(i); wrap.appendChild(dl);
   wrap.__input=i; return wrap;
+}
+/* Menu deroulant a choix multiples (cases a cocher). sel = tableau de noms. */
+function multiPick(sel, list, onChange, ph){
+  sel=asList(sel);
+  var wrap=el('div',{class:'mpick'});
+  var btn=el('button',{type:'button',class:'mpick-btn field'});
+  var panel=el('div',{class:'mpick-panel',style:'display:none;'});
+  function closeOut(ev){ if(!wrap.contains(ev.target)){ panel.style.display='none'; document.removeEventListener('mousedown',closeOut); } }
+  function drawBtn(){
+    btn.innerHTML='';
+    if(sel.length){
+      var chips=el('span',{class:'mpick-chips'});
+      sel.forEach(function(name){
+        var c=el('span',{class:'mpick-chip'});
+        c.appendChild(el('span',{text:name}));
+        var x=el('span',{class:'mpick-x',title:t('Retirer','Remove'),text:'×'});
+        x.addEventListener('mousedown',function(ev){ ev.stopPropagation(); ev.preventDefault(); sel=sel.filter(function(n){return n!==name;}); onChange(sel.slice()); drawBtn(); drawPanel(); });
+        c.appendChild(x);
+        chips.appendChild(c);
+      });
+      btn.appendChild(chips);
+    } else {
+      btn.appendChild(el('span',{class:'mpick-ph',text:ph||t('Choisir...','Select...')}));
+    }
+    btn.appendChild(el('span',{class:'mpick-chev',html:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>'}));
+  }
+  function drawPanel(){
+    panel.innerHTML='';
+    list.forEach(function(name){
+      var on=sel.indexOf(name)>=0;
+      var row=el('label',{class:'mpick-opt'+(on?' on':'')});
+      var cb=el('input',{type:'checkbox'}); cb.checked=on;
+      cb.addEventListener('change',function(){
+        if(cb.checked){ if(sel.indexOf(name)<0) sel.push(name); }
+        else sel=sel.filter(function(n){return n!==name;});
+        onChange(sel.slice()); drawBtn(); drawPanel();
+      });
+      row.appendChild(cb); row.appendChild(el('span',{text:name}));
+      panel.appendChild(row);
+    });
+  }
+  btn.addEventListener('mousedown',function(ev){
+    ev.preventDefault();
+    var open=panel.style.display!=='none';
+    if(open){ panel.style.display='none'; document.removeEventListener('mousedown',closeOut); }
+    else { panel.style.display='block'; drawPanel(); setTimeout(function(){ document.addEventListener('mousedown',closeOut); },0); }
+  });
+  drawBtn();
+  wrap.appendChild(btn); wrap.appendChild(panel);
+  // Re-synchronise l'affichage depuis l'exterieur, sans re-render global (garde le menu ouvert).
+  wrap.__set=function(arr){ sel=asList(arr); drawBtn(); if(panel.style.display!=='none') drawPanel(); };
+  return wrap;
 }
 function textarea(val, onInput, ph){
   var a=el('textarea',{class:'field'}); a.value=val||''; if(ph) a.placeholder=ph;
@@ -2017,7 +2092,7 @@ function textList(arr, phFr, phEn, addFr, addEn){
 function renderEditor(c){
   c.innerHTML='';
   var s=STEPS[STEP];
-  setHead(t(s.fr,s.en), (CUR.group.name||t('Nouvelle fiche','New sheet'))+'  -  '+t('Etape','Step')+' '+(STEP+1)+'/6');
+  setHead(t(s.fr,s.en), (CUR.group.name||t('Nouvelle fiche','New sheet'))+'  -  '+t('Étape','Step')+' '+(STEP+1)+'/6');
 
   var panel=el('div',{class:'panel'});
   var ph=el('div',{class:'panel-h'});
@@ -2030,7 +2105,7 @@ function renderEditor(c){
     rc.style.marginLeft='auto'; firstRight=false; ph.appendChild(rc);
   }
   var ot=ownerTag(STEP_OWNERS[STEP]); if(ot){ if(firstRight){ ot.style.marginLeft='auto'; firstRight=false; } ph.appendChild(ot); }
-  ph.appendChild(el('span',{class:'count',text:t('Etape','Step')+' '+(STEP+1)+'/6'}));
+  ph.appendChild(el('span',{class:'count',text:t('Étape','Step')+' '+(STEP+1)+'/6'}));
   panel.appendChild(ph);
   var body=el('div',{class:'panel-b'});
   var box=el('div',{class:'form-grid one'});
@@ -2046,12 +2121,12 @@ function renderEditor(c){
 function wizFoot(){
   var foot=el('div',{class:'wiz-foot'});
   var prev=el('button',{class:'btn btn-ghost',onclick:function(){ if(STEP>0) gotoStep(STEP-1); else goHome(); }});
-  prev.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>'+(STEP>0?t('Precedent','Previous'):t('Liste','List'));
+  prev.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>'+(STEP>0?t('Précédent','Previous'):t('Liste','List'));
   foot.appendChild(prev);
-  foot.appendChild(el('span',{class:'wiz-progress',text:t('Etape','Step')+' '+(STEP+1)+' / 6'}));
+  foot.appendChild(el('span',{class:'wiz-progress',text:t('Étape','Step')+' '+(STEP+1)+' / 6'}));
   foot.appendChild(el('span',{class:'spacer'}));
 
-  var bSave=el('button',{class:'btn btn-save',onclick:function(){ logSave(); eppFlash(t('Fiche enregistree','Sheet saved'),{type:'ok',timeout:1800}); }});
+  var bSave=el('button',{class:'btn btn-save',onclick:function(){ logSave(); eppFlash(t('Fiche enregistrée','Sheet saved'),{type:'ok',timeout:1800}); }});
   bSave.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/></svg>'+t('Enregistrer','Save');
   foot.appendChild(bSave);
 
@@ -2067,11 +2142,11 @@ function wizFoot(){
   return foot;
 }
 
-/* ----- Etape 1 : le groupe ----- */
+/* ----- Étape 1 : le groupe ----- */
 function stepGroup(box){
   var g=CUR.group;
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Identite du groupe : son nom, ses marques, son perimetre geographique, et le traitement filiales / franchises.",
+    "Identité du groupe : son nom, ses marques, son périmètre géographique, et le traitement filiales / franchises.",
     "Group identity: its name, brands, geographic scope, and how subsidiaries / franchises are handled.")}));
 
   box.appendChild(field('Nom du groupe','Group name',
@@ -2087,7 +2162,7 @@ function stepGroup(box){
   }
 
   box.appendChild(ynRow('Multi-zones / multi-pays ?','Multi-zone / multi-country?',
-    'Le groupe est-il present sur plusieurs zones ou pays ?','Is the group present in several zones or countries?',
+    'Le groupe est-il présent sur plusieurs zones ou pays ?','Is the group present in several zones or countries?',
     g.multiZone, function(v){ g.multiZone=v; touch(); renderEditor($content()); }));
   if(g.multiZone){
     var rz=el('div',{class:'reveal'});
@@ -2096,12 +2171,12 @@ function stepGroup(box){
     box.appendChild(rz);
   }
 
-  box.appendChild(ynRow('Filiales et franchises traitees pareil ?','Subsidiaries and franchises handled the same?',
-    'Meme fonctionnement cote Technique pour les filiales et les franchises ?','Same technical handling for subsidiaries and franchises?',
+  box.appendChild(ynRow('Filiales et franchises traitées pareil ?','Subsidiaries and franchises handled the same?',
+    'Même fonctionnement côté Technique pour les filiales et les franchises ?','Same technical handling for subsidiaries and franchises?',
     g.sfSame, function(v){ g.sfSame=v; touch(); renderEditor($content()); }));
   if(!g.sfSame){
     var rs=el('div',{class:'reveal'});
-    rs.appendChild(field('Preciser les differences','Describe the differences',
+    rs.appendChild(field('Préciser les différences','Describe the differences',
       textarea(g.sfDiff,function(v){ g.sfDiff=v; touch(); },
         t('Ex. les franchises passent par le Support Grands Comptes, les filiales par la Production...',
           'e.g. franchises go through Key Accounts Support, subsidiaries through Production...')), {col2:true}));
@@ -2109,10 +2184,10 @@ function stepGroup(box){
   }
 }
 
-/* ----- Etape 2 : contacts siege ----- */
+/* ----- Étape 2 : contacts siege ----- */
 function stepContacts(box){
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Les interlocuteurs cote client (siege). Tu peux en ajouter plusieurs. En multi-zones, precise le perimetre de chaque contact (meme contact pour tout, ou un par zone / type).",
+    "Les interlocuteurs côté client (siège). Tu peux en ajouter plusieurs. En multi-zones, précise le périmètre de chaque contact (même contact pour tout, ou un par zone / type).",
     "Client-side contacts (HQ). You can add several. For multi-zone groups, specify each contact's scope (same contact for all, or one per zone / type).")}));
   var wrap=el('div',{class:'rep'});
   function redraw(){
@@ -2133,16 +2208,28 @@ function stepContacts(box){
       grid.appendChild(field('Nom','Last name', inputText(ct.lastName,function(v){ ct.lastName=v; touch(); })));
       grid.appendChild(field('Poste / titre','Position / title', inputText(ct.role,function(v){ ct.role=v; touch(); }, t('Ex. Directeur IT','e.g. IT Director'))));
       grid.appendChild(field('Email','Email', inputText(ct.email,function(v){ ct.email=v; touch(); })));
-      grid.appendChild(field('Telephone','Phone', inputText(ct.phone,function(v){ ct.phone=v; touch(); })));
-      if(CUR.group.multiZone)
-        grid.appendChild(field('Perimetre (zone / type)','Scope (zone / type)',
-          inputText(ct.scope,function(v){ ct.scope=v; touch(); }, t('Ex. France, ou toutes zones','e.g. France, or all zones')),
-          {hint:['En multi-zones : meme contact ou different selon la zone / le type.','Multi-zone: same contact or different per zone / type.']}));
+      grid.appendChild(field('Téléphone','Phone', inputText(ct.phone,function(v){ ct.phone=v; touch(); })));
+      if(CUR.group.multiZone){
+        var TOUT=t('Tout','All');
+        ct.scope=asList(ct.scope);
+        var zones=(CUR.group.zones||[]).filter(Boolean);
+        var scopeOpts=[TOUT].concat(zones);
+        var scopePick=multiPick(ct.scope.length?ct.scope:[TOUT], scopeOpts, function(v){
+          // Exclusivite : "Tout" efface les zones ; choisir une zone efface "Tout".
+          var last=v[v.length-1], before=v.length;
+          if(last===TOUT) v=[TOUT];
+          else v=v.filter(function(x){ return x!==TOUT; });
+          ct.scope=v; touch();
+          if(v.length!==before) scopePick.__set(v); // reflete l'exclusivite sans fermer le menu
+        }, TOUT);
+        grid.appendChild(field('Périmètre (zone / type)','Scope (zone / type)', scopePick,
+          {hint:['En multi-zones : "Tout" ou une/plusieurs zones definies a l\'étape Le groupe.','Multi-zone: "All" or one/several zones defined in the Group step.']}));
+      }
       grid.appendChild(field('Compte ePack Manager','ePack Manager account',
         selectField(acctOptions(true), ct.account||'', function(v){ ct.account=v; touch();
           if(v==='super' && superAdminIssue(CUR)) eppFlash(t('Attention : un seul Super Admin par zone.','Warning: only one Super Admin per zone.'),{type:'warn',timeout:3200});
           redraw(); }),
-        {hint:['Si ce contact a un compte ePack Manager, choisis son type (evite de le re-saisir cote Technique).','If this contact has an ePack Manager account, pick its type (avoids re-entering it on the Technical step).']}));
+        {hint:['Si ce contact a un compte ePack Manager, choisis son type (évite de le re-saisir côté Technique).','If this contact has an ePack Manager account, pick its type (avoids re-entering it on the Technical step).']}));
       card.appendChild(grid);
       wrap.appendChild(card);
     });
@@ -2153,41 +2240,42 @@ function stepContacts(box){
   redraw(); box.appendChild(wrap);
 }
 
-/* ----- Etape 3 : notre equipe (interne) ----- */
+/* ----- Étape 3 : notre équipe (interne) ----- */
 function stepTeam(box){
   var n=CUR.internal;
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Qui est qui chez nous sur ce compte. Les roles cles d'abord, puis tout autre interlocuteur interne utile.",
+    "Qui est qui chez nous sur ce compte. Les rôles clés d'abord, puis tout autre interlocuteur interne utile.",
     "Who is who on our side for this account. Key roles first, then any other useful internal contact.")}));
+  n.csm=asList(n.csm); n.qm=asList(n.qm);
   var grid=el('div',{class:'form-grid'});
-  // Ordre : KAM, CSM, QM, CP
-  grid.appendChild(field('KAM','KAM', inputText(n.sales,function(v){ n.sales=v; touch(); }),
-    {role:'sales', hint:['Key Account Manager (ex-"Sales").','Key Account Manager (formerly "Sales").']}));
-  // CSM : liste connue + QM attitre auto-rempli au choix du CSM
-  var csmWrap=inputList(n.csm, CSM_LIST, function(v){ n.csm=v; touch(); },'Guillaume TAVERNIERS, Lauriane GOUISSEM...');
-  csmWrap.__input.addEventListener('change',function(){
-    var q=CSM_QM[n.csm];
-    if(q){ n.qm=q; touch(); renderEditor($content()); }
-  });
-  grid.appendChild(field('CSM','CSM', csmWrap,
-    {role:'csm', hint:['Marie VERDIER : Club Med et quelques groupes etranger. Gerda MEVEL-DE BACKER : BENELUX / distributeurs (Suisse, DROM-TOM).',
-           'Marie VERDIER: Club Med and a few foreign groups. Gerda MEVEL-DE BACKER: BENELUX / distributors (Switzerland, DROM-TOM).']}));
-  grid.appendChild(field('QM','QM',
-    inputList(n.qm, QM_LIST, function(v){ n.qm=v; touch(); },'Sylvain HAMELIN, Nathan LAFEZ...'),
-    {role:'qm', hint:['QM attitre pre-rempli selon le CSM (modifiable). D\'autres QM peuvent etre designes dans "Autres interlocuteurs".',
-           'Assigned QM pre-filled from the CSM (editable). Other QMs can be added in "Other contacts".']}));
-  grid.appendChild(field('CP','CP', inputText(n.cp,function(v){ n.cp=v; touch(); }),
-    {role:'cp', hint:['Customer Planner (consultation).','Customer Planner (read-only).']}));
+  // QM d'abord construit pour pouvoir le rafraichir quand un CSM est choisi.
+  var qmPick=multiPick(n.qm, QM_LIST, function(v){ n.qm=v; touch(); },
+      t('Choisir un ou plusieurs QM...','Select one or more QM...'));
+  // CSM : choix multiple. Chaque CSM choisi ajoute son QM attitre a la liste QM.
+  grid.appendChild(field('CSM','CSM',
+    multiPick(n.csm, CSM_LIST, function(v){
+      n.csm=v;
+      // auto-ajout du QM attitre pour chaque CSM sélectionné (sans retirer les QM déjà la)
+      var added=false;
+      v.forEach(function(name){ var q=CSM_QM[name]; if(q && n.qm.indexOf(q)<0){ n.qm.push(q); added=true; } });
+      touch();
+      if(added) qmPick.__set(n.qm); // rafraichit juste le champ QM, garde le menu CSM ouvert
+    }, t('Choisir un ou plusieurs CSM...','Select one or more CSM...')),
+    {role:'csm', hint:['Choix multiple. Marie VERDIER : Club Med et quelques groupes étrangers. Gerda MEVEL-DE BACKER : BENELUX / distributeurs (Suisse, DROM-TOM).',
+           'Multi-select. Marie VERDIER: Club Med and a few foreign groups. Gerda MEVEL-DE BACKER: BENELUX / distributors (Switzerland, DROM-TOM).']}));
+  grid.appendChild(field('QM','QM', qmPick,
+    {role:'qm', hint:['Choix multiple. Le QM attitré est pré-ajouté selon le CSM (modifiable).',
+           'Multi-select. The assigned QM is pre-added from the CSM (editable).']}));
   box.appendChild(grid);
 
   box.appendChild(el('div',{class:'sub-h',text:t('Autres interlocuteurs internes','Other internal contacts')}));
   var wrap=el('div',{class:'rep'});
   function redraw(){
     wrap.innerHTML='';
-    if(!n.others.length) wrap.appendChild(el('div',{class:'empty-note',text:t('Aucun autre interlocuteur ajoute.','No other contact added.')}));
+    if(!n.others.length) wrap.appendChild(el('div',{class:'empty-note',text:t('Aucun autre interlocuteur ajouté.','No other contact added.')}));
     n.others.forEach(function(o,i){
       var line=el('div',{class:'rep-line'});
-      line.appendChild(inputText(o.role,function(v){ o.role=v; touch(); }, t('Role / service','Role / team')));
+      line.appendChild(inputText(o.role,function(v){ o.role=v; touch(); }, t('Rôle / service','Role / team')));
       line.appendChild(inputText(o.name,function(v){ o.name=v; touch(); }, t('Nom','Name')));
       var del=el('button',{class:'iconbtn-sm danger',title:t('Retirer','Remove'),onclick:function(){ n.others.splice(i,1); touch(); redraw(); }});
       del.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>'; line.appendChild(del);
@@ -2200,29 +2288,29 @@ function stepTeam(box){
   redraw(); box.appendChild(wrap);
 }
 
-/* ----- Etape 4 : commercial ----- */
+/* ----- Étape 4 : commercial ----- */
 function stepComm(box){
   var cm=CUR.commercial;
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Conditions commerciales utiles au Technique : contrat cadre, tarifs negocies, consommables, et le contexte / historique du compte.",
+    "Conditions commerciales utiles au Technique : contrat cadre, tarifs négociés, consommables, et le contexte / historique du compte.",
     "Commercial terms useful to the Technical team: frame contract, negotiated prices, consumables, and the account context / history.")}));
 
   box.appendChild(ynRow('Contrat cadre ?','Frame contract?',
     'Un contrat cadre est-il en place avec le groupe ?','Is a frame contract in place with the group?',
     cm.frameContract, function(v){ cm.frameContract=v; touch(); renderEditor($content()); }));
 
-  box.appendChild(el('div',{class:'sub-h',text:t('Tarifs negocies','Negotiated prices')}));
-  box.appendChild(field('Reference tarifaire (ou lien)','Pricing reference (or link)',
+  box.appendChild(el('div',{class:'sub-h',text:t('Tarifs négociés','Negotiated prices')}));
+  box.appendChild(field('Référence tarifaire (ou lien)','Pricing reference (or link)',
     inputText(cm.priceRef,function(v){ cm.priceRef=v; touch(); },
-      t('Ex. Se referer a la grille tarifaire Salesforce / compte groupement','e.g. See Salesforce pricing grid / group account')),
-    {hint:['Souvent les tarifs renvoient a Salesforce. Tu peux aussi detailler des lignes ci-dessous.','Prices often point to Salesforce. You can also detail lines below.'], col2:true}));
+      t('Ex. Se référer a la grille tarifaire Salesforce / compte groupement','e.g. See Salesforce pricing grid / group account')),
+    {hint:['Souvent les tarifs renvoient a Salesforce. Tu peux aussi détailler des lignes ci-dessous.','Prices often point to Salesforce. You can also detail lines below.'], col2:true}));
   box.appendChild(priceTable(cm.prices, true));
 
   box.appendChild(el('div',{class:'sub-h',text:t('Consommables','Consumables')}));
   box.appendChild(priceTable(cm.consumables, false));
-  box.appendChild(field('Specificites consommables','Consumables specifics',
+  box.appendChild(field('Spécificités consommables','Consumables specifics',
     textarea(cm.consumableNote,function(v){ cm.consumableNote=v; touch(); },
-      t('Ex. references imposees, circuit de commande, tarifs groupe particuliers...','e.g. mandatory references, ordering process, specific group pricing...')), {col2:true}));
+      t('Ex. références imposées, circuit de commande, tarifs groupe particuliers...','e.g. mandatory references, ordering process, specific group pricing...')), {col2:true}));
 
   box.appendChild(el('div',{class:'sub-h',text:t('Historique / contexte commercial','History / commercial context')}));
   box.appendChild(field('Historique / contexte','History / context',
@@ -2232,19 +2320,19 @@ function stepComm(box){
 function priceTable(arr, withCat){
   var wrap=el('div',{class:'rep'});
   var catOpts=[
-    {v:'materiel',l:t('Materiel','Hardware')},
+    {v:'matériel',l:t('Matériel','Hardware')},
     {v:'option',l:t('Option','Option')},
     {v:'accessoire',l:t('Accessoire','Accessory')}
   ];
   function redraw(){
     wrap.innerHTML='';
-    if(!arr.length) wrap.appendChild(el('div',{class:'empty-note',text:t('Aucune ligne. Ajoute un tarif negocie ci-dessous.','No line yet. Add a negotiated price below.')}));
+    if(!arr.length) wrap.appendChild(el('div',{class:'empty-note',text:t('Aucune ligne. Ajoute un tarif négocié ci-dessous.','No line yet. Add a negotiated price below.')}));
     arr.forEach(function(p,i){
       var card=el('div',{class:'rep-card'});
       var grid=el('div',{class:'form-grid'});
-      if(withCat) grid.appendChild(field('Categorie','Category', selectField(catOpts, p.cat||'materiel', function(v){ p.cat=v; touch(); })));
-      grid.appendChild(field('Designation','Item', inputText(p.label,function(v){ p.label=v; touch(); }, t('Ex. Terminal X, option Y','e.g. Terminal X, option Y'))));
-      grid.appendChild(field('Tarif negocie','Negotiated price', inputText(p.price,function(v){ p.price=v; touch(); }, t('Ex. 1 290 EUR','e.g. EUR 1,290'))));
+      if(withCat) grid.appendChild(field('Catégorie','Category', selectField(catOpts, p.cat||'matériel', function(v){ p.cat=v; touch(); })));
+      grid.appendChild(field('Désignation','Item', inputText(p.label,function(v){ p.label=v; touch(); }, t('Ex. Terminal X, option Y','e.g. Terminal X, option Y'))));
+      grid.appendChild(field('Tarif négocié','Negotiated price', inputText(p.price,function(v){ p.price=v; touch(); }, t('Ex. 1 290 EUR','e.g. EUR 1,290'))));
       grid.appendChild(field('Remarque','Note', inputText(p.note,function(v){ p.note=v; touch(); })));
       card.appendChild(grid);
       var tools=el('div',{style:'display:flex;justify-content:flex-end;margin-top:8px;'});
@@ -2253,68 +2341,68 @@ function priceTable(arr, withCat){
       card.appendChild(tools);
       wrap.appendChild(card);
     });
-    var add=el('button',{class:'btn btn-ghost rep-add',onclick:function(){ arr.push(withCat?{cat:'materiel',label:'',price:'',note:''}:{label:'',price:'',note:''}); touch(); redraw(); }});
+    var add=el('button',{class:'btn btn-ghost rep-add',onclick:function(){ arr.push(withCat?{cat:'matériel',label:'',price:'',note:''}:{label:'',price:'',note:''}); touch(); redraw(); }});
     add.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'+(withCat?t('Ajouter un tarif','Add a price'):t('Ajouter un consommable','Add a consumable'));
     wrap.appendChild(add);
   }
   redraw(); return wrap;
 }
 
-/* ----- Etape 5 : deploiement ----- */
+/* ----- Étape 5 : déploiement ----- */
 function stepDeploy(box){
   var d=CUR.deploy;
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Le deploiement sur le parc : volumes, cadence, planning, et le site reference mis a disposition.",
+    "Le déploiement sur le parc : volumes, cadence, planning, et le site référence mis a disposition.",
     "Rollout across the estate: volumes, pace, schedule, and the reference site made available.")}));
   var grid=el('div',{class:'form-grid'});
-  grid.appendChild(field('Nombre de sites equipes','Sites already equipped', inputNum(d.sitesEquipped,function(v){ d.sitesEquipped=v; touch(); })));
-  grid.appendChild(field('Nombre de sites a equiper','Sites to equip', inputNum(d.sitesToEquip,function(v){ d.sitesToEquip=v; touch(); })));
-  grid.appendChild(field('Cadence de deploiement','Rollout pace', inputText(d.cadence,function(v){ d.cadence=v; touch(); }, t('Ex. 5 sites / mois','e.g. 5 sites / month'))));
+  grid.appendChild(field('Nombre de sites équipes','Sites already equipped', inputNum(d.sitesEquipped,function(v){ d.sitesEquipped=v; touch(); })));
+  grid.appendChild(field('Nombre de sites a équiper','Sites to equip', inputNum(d.sitesToEquip,function(v){ d.sitesToEquip=v; touch(); })));
+  grid.appendChild(field('Cadence de déploiement','Rollout pace', inputText(d.cadence,function(v){ d.cadence=v; touch(); }, t('Ex. 5 sites / mois','e.g. 5 sites / month'))));
   box.appendChild(grid);
 
-  box.appendChild(el('div',{class:'sub-h',text:t('Tableau de deploiement / retroplanning','Rollout table / schedule')}));
+  box.appendChild(el('div',{class:'sub-h',text:t('Tableau de déploiement / retroplanning','Rollout table / schedule')}));
   var pgrid=el('div',{class:'form-grid'});
   pgrid.appendChild(field('Lien du tableau','Table link',
     inputText(d.planningUrl,function(v){ d.planningUrl=v; touch(); }, 'https://...'),
     {hint:['SharePoint, Drive, Smartsheet...','SharePoint, Drive, Smartsheet...'], col2:true}));
-  pgrid.appendChild(field('Frequence d\'envoi','Sending frequency', inputText(d.planningFreq,function(v){ d.planningFreq=v; touch(); }, t('Ex. mensuel','e.g. monthly'))));
-  pgrid.appendChild(field('Destinataire (cote client)','Recipient (client side)', inputText(d.planningRecipient,function(v){ d.planningRecipient=v; touch(); }, t('Ex. contact siege','e.g. HQ contact'))));
+  pgrid.appendChild(field('Fréquence d\'envoi','Sending frequency', inputText(d.planningFreq,function(v){ d.planningFreq=v; touch(); }, t('Ex. mensuel','e.g. monthly'))));
+  pgrid.appendChild(field('Destinataire (côté client)','Recipient (client side)', inputText(d.planningRecipient,function(v){ d.planningRecipient=v; touch(); }, t('Ex. contact siège','e.g. HQ contact'))));
   pgrid.appendChild(field('Infos a masquer avant envoi','Info to hide before sending',
     inputText(d.planningHide,function(v){ d.planningHide=v; touch(); }, t('Ex. colonnes internes a retirer','e.g. internal columns to remove')),
-    {hint:['Certaines colonnes ne doivent pas apparaitre cote client.','Some columns must not appear on the client side.'], col2:true}));
+    {hint:['Certaines colonnes ne doivent pas apparaître côté client.','Some columns must not appear on the client side.'], col2:true}));
   box.appendChild(pgrid);
 
-  box.appendChild(el('div',{class:'sub-h',text:t('Site referent','Reference site')}));
-  box.appendChild(ynRow('Un site referent / materiel est-il mis a disposition des sieges ?','Is a reference site / hardware provided to HQ?',
+  box.appendChild(el('div',{class:'sub-h',text:t('Site référent','Reference site')}));
+  box.appendChild(ynRow('Un site référent / matériel est-il mis a disposition des sièges ?','Is a reference site / hardware provided to HQ?',
     null,null, d.refSiteProvided, function(v){ d.refSiteProvided=v; touch(); renderEditor($content()); }));
   if(d.refSiteProvided){
     var r=el('div',{class:'reveal'});
-    r.appendChild(field('Details du site referent / materiel mis a dispo','Reference site / hardware details',
+    r.appendChild(field('Détails du site référent / matériel mis a dispo','Reference site / hardware details',
       textarea(d.refSite,function(v){ d.refSite=v; touch(); },
-        t('Ex. site pilote de Lyon, materiel de demo au siege, acces, contact sur place...','e.g. Lyon pilot site, demo hardware at HQ, access, on-site contact...')), {col2:true}));
+        t('Ex. site pilote de Lyon, matériel de démo au siège, accès, contact sur place...','e.g. Lyon pilot site, demo hardware at HQ, access, on-site contact...')), {col2:true}));
     box.appendChild(r);
   }
 }
 
-/* ----- Etape 6 : technique & parametrages ----- */
+/* ----- Étape 6 : technique & paramétrages ----- */
 function stepTech(box){
   var te=CUR.tech;
   box.appendChild(el('p',{class:'step-intro',text:t(
-    "Infos TECHNIQUES specifiques a ce groupe (pour la Production/SAV). La procedure standard (Windows, convention de nommage Teamviewer/ePack Manager, etapes d'integration) reste dans Documize : ici on ne note que ce qui est propre au groupe.",
+    "Infos TECHNIQUES spécifiques a ce groupe (pour la Production/SAV). La procédure standard (Windows, convention de nommage Teamviewer/ePack Manager, étapes d'intégration) reste dans Documize : ici on ne note que ce qui est propre au groupe.",
     "GROUP-SPECIFIC technical info (for Production/SAV). The standard procedure (Windows, Teamviewer/ePack Manager naming, integration steps) stays in Documize: here we only capture what is specific to the group.")}));
 
-  // --- Parametrage type ---
-  box.appendChild(el('div',{class:'sub-h',text:t('Parametrage type','Standard setup / param type')}));
+  // --- Paramétrage type ---
+  box.appendChild(el('div',{class:'sub-h',text:t('Paramétrage type','Standard setup / param type')}));
   var pg=el('div',{class:'form-grid'});
-  pg.appendChild(field('Lien du parametrage type (SharePoint)','Param type link (SharePoint)',
+  pg.appendChild(field('Lien du paramétrage type (SharePoint)','Param type link (SharePoint)',
     inputText(te.paramTypeUrl,function(v){ te.paramTypeUrl=v; touch(); }, t('Lien vers le dossier PARAMS TYPES du groupe','Link to the group PARAMS TYPES folder')),
     {col2:true}));
-  pg.appendChild(field('Langue(s) du parametrage','Param language(s)',
+  pg.appendChild(field('Langue(s) du paramétrage','Param language(s)',
     inputText(te.paramLangs,function(v){ te.paramLangs=v; touch(); }, t('Ex. FR, EN, ES','e.g. FR, EN, ES'))));
   box.appendChild(pg);
 
   // --- Modules (ordre + noms), importables depuis OptionsUI.xml ---
-  box.appendChild(el('div',{class:'sub-h',text:t('Modules (parametrage type)','Modules (param type)')}));
+  box.appendChild(el('div',{class:'sub-h',text:t('Modules (paramétrage type)','Modules (param type)')}));
   var barM=el('div',{style:'display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:6px;'});
   var impBtn=el('button',{class:'btn btn-brand',type:'button',onclick:function(){ importOptionsUI(); }});
   impBtn.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>'+t('Importer OptionsUI.xml','Import OptionsUI.xml');
@@ -2325,7 +2413,7 @@ function stepTech(box){
   if(te.modules.length) barM.appendChild(el('span',{class:'wiz-progress',text:te.modules.length+' '+t('module(s)','module(s)')}));
   box.appendChild(barM);
   box.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 10px;',
-    text:t("Importe le OptionsUI.xml du parametrage type : la grille se remplit (ordre + noms). Par defaut, Temperature Frigo est en Variable (comme souvent les Utilisateurs). Clique une tuile pour basculer Type / Variable.",
+    text:t("Importe le OptionsUI.xml du paramétrage type : la grille se remplit (ordre + noms). Par défaut, Température Frigo est en Variable (comme souvent les Utilisateurs). Clique une tuile pour basculer Type / Variable.",
             "Import the param type OptionsUI.xml: the grid fills in (order + names). By default, Fridge temperature is set to Variable (like Users usually). Click a tile to toggle Type / Variable.")}));
   box.appendChild(moduleLegend());
   var gridHost=el('div'); box.appendChild(gridHost);
@@ -2342,7 +2430,7 @@ function stepTech(box){
         var prev={}; te.modules.forEach(function(m){ prev[(m.name||'').toLowerCase()]=m.variable; });
         te.modules=mods.map(function(m){
           var low=(m.name||'').toLowerCase();
-          var def=/frigo/.test(low); // par defaut en Variable : Temperature Frigo (Utilisateurs = module separe)
+          var def=/frigo/.test(low); // par défaut en Variable : Temperature Frigo (Utilisateurs = module separe)
           return { name:m.name, key:m.key, variable: prev.hasOwnProperty(low)?prev[low]:def };
         });
         touch(); renderEditor($content());
@@ -2353,14 +2441,14 @@ function stepTech(box){
     document.body.appendChild(inp); inp.click(); setTimeout(function(){ inp.remove(); },0);
   }
 
-  // Liste detaillee (renommer / reordonner / ajouter) repliable
+  // Liste détaillée (renommer / reordonner / ajouter) repliable
   var det=el('details',{class:'mod-details'});
-  var sum=el('summary'); sum.innerHTML='<span>'+t('Modifier / renommer / reordonner les modules','Edit / rename / reorder modules')+'</span><svg class="chev ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';
+  var sum=el('summary'); sum.innerHTML='<span>'+t('Modifier / renommer / réordonner les modules','Edit / rename / reorder modules')+'</span><svg class="chev ico" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>';
   det.appendChild(sum);
   var mwrap=el('div',{class:'rep mod-det-body'});
   function mdraw(){
     mwrap.innerHTML='';
-    if(!te.modules.length) mwrap.appendChild(el('div',{class:'empty-note',text:t('Aucun module. Importe un OptionsUI.xml ou ajoute-les a la main.','No module yet. Import an OptionsUI.xml or add them manually.')}));
+    if(!te.modules.length) mwrap.appendChild(el('div',{class:'empty-note',text:t('Aucun module. Importe un OptionsUI.xml ou ajouté-les a la main.','No module yet. Import an OptionsUI.xml or add them manually.')}));
     te.modules.forEach(function(m,i){
       var line=el('div',{class:'rep-line',style:'align-items:center;'});
       line.appendChild(el('span',{class:'chip',style:'flex:0 0 auto;align-self:center;',text:(i+1)+''}));
@@ -2386,32 +2474,32 @@ function stepTech(box){
   }
   mdraw(); det.appendChild(mwrap); box.appendChild(det);
 
-  box.appendChild(field('Modules a recurrences a verifier','Recurring modules to check',
+  box.appendChild(field('Modules a récurrences a vérifier','Recurring modules to check',
     textarea(te.recurrences,function(v){ te.recurrences=v; touch(); },
-      t('Ex. Nettoyage poste, Temperature Frigos, ou tout autre module a recurrences.','e.g. Station cleaning, Fridge temperature, or any other recurring module.')), {col2:true}));
+      t('Ex. Nettoyage poste, Température Frigos, ou tout autre module a récurrences.','e.g. Station cleaning, Fridge temperature, or any other recurring module.')), {col2:true}));
 
   // --- Comptes ePack Manager ---
   box.appendChild(el('div',{class:'sub-h',text:t('Comptes ePack Manager','ePack Manager accounts')}));
   box.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 8px;',
-    text:t("Super Admin : un seul par groupe, plusieurs solutions, cree tout type de compte. Admin : illimite, plusieurs solutions, cree des comptes utilisateur. Utilisateur : illimite, une seule solution, cree des comptes utilisateur.",
+    text:t("Super Admin : un seul par groupe, plusieurs solutions, créé tout type de compte. Admin : illimité, plusieurs solutions, créé des comptes utilisateur. Utilisateur : illimité, une seule solution, créé des comptes utilisateur.",
             "Super Admin: one per group, multiple solutions, creates any account type. Admin: unlimited, multiple solutions, creates user accounts. User: unlimited, one solution, creates user accounts.")}));
   if(superAdminIssue(CUR)) box.appendChild(el('div',{class:'empty-note',style:'color:#c0211a;font-style:normal;font-weight:700;',text:t('Attention : une zone a plusieurs Super Admin (un seul autorise par zone).','Warning: a zone has several Super Admins (only one allowed per zone).')}));
 
-  // Contacts siege ayant un compte (lecture seule : se modifie sur l'etape Contacts)
+  // Contacts siege ayant un compte (lecture seule : se modifie sur l'étape Contacts)
   var linked=CUR.contacts.filter(function(c){ return c.account; });
   if(linked.length){
-    box.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 4px;',text:t('Depuis les contacts siege','From HQ contacts')}));
+    box.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 4px;',text:t('Depuis les contacts siège','From HQ contacts')}));
     var lt=el('table',{class:'mini-tbl'});
     lt.innerHTML='<thead><tr><th>'+esc(t('Nom','Name'))+'</th><th>'+esc(t('Email','Email'))+'</th><th style="width:130px;">'+esc(t('Type','Type'))+'</th></tr></thead>';
     var lb=el('tbody');
     linked.forEach(function(c){ var nm=((c.firstName||'')+' '+(c.lastName||'')).trim();
       var tr=el('tr'); tr.innerHTML='<td><b>'+esc(nm||'-')+'</b></td><td>'+esc(c.email||'-')+'</td><td><span class="chip mod-req">'+esc(acctLabel(c.account))+'</span></td>'; lb.appendChild(tr); });
     lt.appendChild(lb); box.appendChild(lt);
-    box.appendChild(el('p',{class:'fld-hint',style:'margin:4px 0 8px;',text:t('Se modifie sur l\'etape "Contacts siege" (un contact = son compte, pas de double saisie).','Edit on the "HQ contacts" step (a contact = its account, no double entry).')}));
+    box.appendChild(el('p',{class:'fld-hint',style:'margin:4px 0 8px;',text:t('Se modifie sur l\'étape "Contacts siège" (un contact = son compte, pas de double saisie).','Edit on the "HQ contacts" step (a contact = its account, no double entry).')}));
   }
 
   // Comptes hors contacts siege (internes, sites...)
-  box.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 4px;',text:t('Autres comptes (hors contacts siege)','Other accounts (not HQ contacts)')}));
+  box.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 4px;',text:t('Autres comptes (hors contacts siège)','Other accounts (not HQ contacts)')}));
   var maWrap=el('div',{class:'rep'});
   function madraw(){
     maWrap.innerHTML='';
@@ -2438,7 +2526,7 @@ function stepTech(box){
   madraw(); box.appendChild(maWrap);
 
   box.appendChild(field('Compte Update ePack (email)','ePack Update account (email)',
-    inputText(te.updateAccount,function(v){ te.updateAccount=v; touch(); }, t('Ex. updategroupe@epack-hygiene.fr','e.g. updategroup@epack-hygiene.fr')),
+    inputText(te.updateAccount,function(v){ te.updateAccount=v; touch(); }, t('Ex. updategroupe@epack-hygiène.fr','e.g. updategroup@epack-hygiene.fr')),
     {hint:['Notre compte interne a assigner a la solution pour les mises a jour.','Our internal account to assign to the solution for updates.'], col2:true}));
 
   // --- Listing ---
@@ -2454,13 +2542,13 @@ function stepTech(box){
   var lvOpts=[{v:'info',l:t('Info','Info')},{v:'imp',l:t('Important','Important')},{v:'crit',l:t('Critique','Critical')}];
   function vdraw(){
     vwrap.innerHTML='';
-    if(!te.vigilance.length) vwrap.appendChild(el('div',{class:'empty-note',text:t('Aucun point. Ex. "les autres modules ne doivent pas etre presentes".','No item yet. e.g. "other modules must not be shown".')}));
+    if(!te.vigilance.length) vwrap.appendChild(el('div',{class:'empty-note',text:t('Aucun point. Ex. "les autres modules ne doivent pas être présentés".','No item yet. e.g. "other modules must not be shown".')}));
     te.vigilance.forEach(function(p,i){
       var line=el('div',{class:'rep-line'});
       var sel=selectField(lvOpts, p.level||'info', function(v){ p.level=v; touch(); });
       sel.style.flex='0 0 150px';
       line.appendChild(sel);
-      line.appendChild(inputText(p.text,function(v){ p.text=v; touch(); }, t('Decris le point de vigilance ou l\'instruction','Describe the point of attention or instruction')));
+      line.appendChild(inputText(p.text,function(v){ p.text=v; touch(); }, t('Décris le point de vigilance ou l\'instruction','Describe the point of attention or instruction')));
       var del=el('button',{class:'iconbtn-sm danger',title:t('Retirer','Remove'),onclick:function(){ te.vigilance.splice(i,1); touch(); vdraw(); }});
       del.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>'; line.appendChild(del);
       vwrap.appendChild(line);
@@ -2471,9 +2559,9 @@ function stepTech(box){
   }
   vdraw(); box.appendChild(vwrap);
 
-  box.appendChild(field('Autres consignes de parametrage','Other setup instructions',
+  box.appendChild(field('Autres consignes de paramétrage','Other setup instructions',
     textarea(te.note,function(v){ te.note=v; touch(); },
-      t('Toute autre consigne specifique au groupe (hors procedure standard Documize).','Any other group-specific instruction (outside the Documize standard procedure).')), {col2:true}));
+      t('Toute autre consigne spécifique au groupe (hors procédure standard Documize).','Any other group-specific instruction (outside the Documize standard procedure).')), {col2:true}));
 }
 
 /* =========================================================================
@@ -2482,7 +2570,7 @@ function stepTech(box){
 function dl(pairs){
   var d=el('dl',{class:'fiche-dl'});
   pairs.forEach(function(p){
-    if(p[1]==null || p[1]==='' ) { d.appendChild(el('dt',{text:p[0]})); d.appendChild(el('dd',{class:'muted',text:t('Non renseigne','Not provided')})); }
+    if(p[1]==null || p[1]==='' ) { d.appendChild(el('dt',{text:p[0]})); d.appendChild(el('dd',{class:'muted',text:t('Non renseigné','Not provided')})); }
     else { d.appendChild(el('dt',{text:p[0]})); var dd=el('dd'); if(p[2]==='html') dd.innerHTML=p[1]; else dd.textContent=p[1]; d.appendChild(dd); }
   });
   return d;
@@ -2499,7 +2587,7 @@ function yesno(v){ return v?t('Oui','Yes'):t('Non','No'); }
 
 function renderFiche(c){
   var a=CUR, g=a.group;
-  setHead(g.name||t('Fiche Grand Compte','Key account sheet'), t('Fiche recapitulative','Summary sheet'));
+  setHead(g.name||t('Fiche Grand Compte','Key account sheet'), t('Fiche récapitulative','Summary sheet'));
 
   // Barre d'actions (non imprimee)
   var bar=el('div',{class:'toolbar no-print'});
@@ -2528,17 +2616,17 @@ function renderFiche(c){
   fiche.appendChild(head);
 
   // 1. Groupe
-  var gBrands = g.multiBrand ? (g.brands.filter(Boolean).join(', ')||t('Non renseigne','Not provided')) : t('Marque unique','Single brand');
-  var gZones  = g.multiZone  ? (g.zones.filter(Boolean).join(', ')||t('Non renseigne','Not provided')) : t('Zone unique','Single zone');
+  var gBrands = g.multiBrand ? (g.brands.filter(Boolean).join(', ')||t('Non renseigné','Not provided')) : t('Marque unique','Single brand');
+  var gZones  = g.multiZone  ? (g.zones.filter(Boolean).join(', ')||t('Non renseigné','Not provided')) : t('Zone unique','Single zone');
   var gPairs=[
     [t('Nom du groupe','Group name'), g.name],
     [t('Plusieurs marques','Several brands'), yesno(g.multiBrand)],
     [t('Marques','Brands'), g.multiBrand?gBrands:null],
     [t('Multi-zones / pays','Multi-zone / country'), yesno(g.multiZone)],
     [t('Zones / pays','Zones / countries'), g.multiZone?gZones:null],
-    [t('Filiales & franchises traitees pareil','Subsidiaries & franchises same'), yesno(g.sfSame)]
+    [t('Filiales & franchises traitées pareil','Subsidiaries & franchises same'), yesno(g.sfSame)]
   ];
-  if(!g.sfSame) gPairs.push([t('Differences','Differences'), g.sfDiff]);
+  if(!g.sfSame) gPairs.push([t('Différences','Differences'), g.sfDiff]);
   fiche.appendChild(sec('Le groupe','The group', dl(gPairs), STEP_OWNERS[0]));
 
   // 2. Contacts siege
@@ -2546,71 +2634,71 @@ function renderFiche(c){
   var cts=a.contacts.filter(function(ct){ return ct.firstName||ct.lastName||ct.email||ct.phone||ct.role; });
   if(cts.length){
     var tbl=el('table',{class:'mini-tbl'});
-    var hcols='<tr><th>'+esc(t('Nom','Name'))+'</th><th>'+esc(t('Poste','Position'))+'</th><th>'+esc(t('Email','Email'))+'</th><th>'+esc(t('Telephone','Phone'))+'</th>'+(g.multiZone?('<th>'+esc(t('Perimetre','Scope'))+'</th>'):'')+'</tr>';
+    var hcols='<tr><th>'+esc(t('Nom','Name'))+'</th><th>'+esc(t('Poste','Position'))+'</th><th>'+esc(t('Email','Email'))+'</th><th>'+esc(t('Téléphone','Phone'))+'</th>'+(g.multiZone?('<th>'+esc(t('Périmètre','Scope'))+'</th>'):'')+'</tr>';
     tbl.innerHTML='<thead>'+hcols+'</thead>';
     var tb=el('tbody');
     cts.forEach(function(ct){
       var nm=((ct.firstName||'')+' '+(ct.lastName||'')).trim();
       var email=ct.email?('<a class="link-ext" href="mailto:'+esc(ct.email)+'">'+esc(ct.email)+'</a>'):'-';
-      var r='<td><b>'+esc(nm||'-')+'</b></td><td>'+esc(ct.role||'-')+'</td><td>'+email+'</td><td>'+esc(ct.phone||'-')+'</td>'+(g.multiZone?('<td>'+esc(ct.scope||'-')+'</td>'):'');
+      var r='<td><b>'+esc(nm||'-')+'</b></td><td>'+esc(ct.role||'-')+'</td><td>'+email+'</td><td>'+esc(ct.phone||'-')+'</td>'+(g.multiZone?('<td>'+esc(asList(ct.scope).join(', ')||'-')+'</td>'):'');
       var tr=el('tr'); tr.innerHTML=r; tb.appendChild(tr);
     });
     tbl.appendChild(tb); contactsNode=tbl;
-  } else contactsNode=el('div',{class:'empty-note',text:t('Aucun contact renseigne.','No contact provided.')});
-  fiche.appendChild(sec('Contacts siege','HQ contacts', contactsNode, STEP_OWNERS[1]));
+  } else contactsNode=el('div',{class:'empty-note',text:t('Aucun contact renseigné.','No contact provided.')});
+  fiche.appendChild(sec('Contacts siège','HQ contacts', contactsNode, STEP_OWNERS[1]));
 
-  // 3. Notre equipe
+  // 3. Notre équipe
   var n=a.internal;
-  var tPairs=[['KAM', n.sales],['CSM', n.csm],['QM', n.qm],['CP', n.cp]];
+  var tPairs=[['CSM', asList(n.csm).join(', ')],['QM', asList(n.qm).join(', ')]];
   n.others.filter(function(o){ return o.role||o.name; }).forEach(function(o){ tPairs.push([o.role||t('Autre','Other'), o.name]); });
-  fiche.appendChild(sec('Notre equipe','Our team', dl(tPairs), STEP_OWNERS[2]));
+  fiche.appendChild(sec('Notre équipe','Our team', dl(tPairs), STEP_OWNERS[2]));
 
   // 4. Commercial
   var commWrap=el('div',{style:'display:flex;flex-direction:column;gap:14px;'});
   commWrap.appendChild(dl([
     [t('Contrat cadre','Frame contract'), yesno(a.commercial.frameContract)],
-    [t('Reference tarifaire','Pricing reference'), a.commercial.priceRef||null]
+    [t('Référence tarifaire','Pricing reference'), a.commercial.priceRef||null]
   ]));
   commWrap.appendChild(priceRecap(a.commercial.prices, true));
   var consTitle=el('div',{class:'sub-h',style:'margin-top:4px;',text:t('Consommables','Consumables')});
   commWrap.appendChild(consTitle);
   commWrap.appendChild(priceRecap(a.commercial.consumables, false));
-  if(a.commercial.consumableNote) commWrap.appendChild(dl([[t('Specificites consommables','Consumables specifics'), a.commercial.consumableNote]]));
+  if(a.commercial.consumableNote) commWrap.appendChild(dl([[t('Spécificités consommables','Consumables specifics'), a.commercial.consumableNote]]));
   commWrap.appendChild(dl([[t('Historique / contexte','History / context'), a.commercial.history||null]]));
   fiche.appendChild(sec('Commercial','Commercial', commWrap, STEP_OWNERS[3]));
 
-  // 5. Deploiement
+  // 5. Déploiement
   var d=a.deploy;
   var planLink = d.planningUrl ? ('<a class="link-ext" href="'+esc(d.planningUrl)+'" target="_blank" rel="noopener">'+esc(d.planningUrl)+'</a>') : null;
   var dPairs=[
-    [t('Sites equipes','Sites equipped'), (d.sitesEquipped!==''&&d.sitesEquipped!=null)?String(d.sitesEquipped):null],
-    [t('Sites a equiper','Sites to equip'), (d.sitesToEquip!==''&&d.sitesToEquip!=null)?String(d.sitesToEquip):null],
+    [t('Sites équipes','Sites equipped'), (d.sitesEquipped!==''&&d.sitesEquipped!=null)?String(d.sitesEquipped):null],
+    [t('Sites a équiper','Sites to equip'), (d.sitesToEquip!==''&&d.sitesToEquip!=null)?String(d.sitesToEquip):null],
     [t('Cadence','Pace'), d.cadence],
     [t('Tableau / retroplanning','Rollout table / schedule'), planLink, planLink?'html':null],
-    [t('Frequence d\'envoi du tableau','Table sending frequency'), d.planningFreq||null],
+    [t('Fréquence d\'envoi du tableau','Table sending frequency'), d.planningFreq||null],
     [t('Destinataire (client)','Recipient (client)'), d.planningRecipient||null],
     [t('Infos a masquer avant envoi','Info to hide before sending'), d.planningHide||null],
-    [t('Site referent / materiel sieges','Reference site / HQ hardware'), d.refSiteProvided?(d.refSite||t('Oui (a detailler)','Yes (to detail)')):t('Non','No')]
+    [t('Site référent / matériel sièges','Reference site / HQ hardware'), d.refSiteProvided?(d.refSite||t('Oui (a détailler)','Yes (to detail)')):t('Non','No')]
   ];
-  fiche.appendChild(sec('Deploiement','Rollout', dl(dPairs), STEP_OWNERS[4]));
+  fiche.appendChild(sec('Déploiement','Rollout', dl(dPairs), STEP_OWNERS[4]));
 
-  // 6. Technique & parametrages
+  // 6. Technique & paramétrages
   var te=a.tech;
   var techWrap=el('div',{style:'display:flex;flex-direction:column;gap:14px;'});
-  // Parametrage type
-  techWrap.appendChild(el('div',{class:'sub-h',style:'margin:0;',text:t('Parametrage type','Standard setup / param type')}));
+  // Paramétrage type
+  techWrap.appendChild(el('div',{class:'sub-h',style:'margin:0;',text:t('Paramétrage type','Standard setup / param type')}));
   var ptLink = te.paramTypeUrl ? ('<a class="link-ext" href="'+esc(te.paramTypeUrl)+'" target="_blank" rel="noopener">'+esc(te.paramTypeUrl)+'</a>') : null;
   techWrap.appendChild(dl([
-    [t('Lien parametrage type','Param type link'), ptLink, ptLink?'html':null],
+    [t('Lien paramétrage type','Param type link'), ptLink, ptLink?'html':null],
     [t('Langue(s)','Language(s)'), te.paramLangs||null]
   ]));
   var mods = (te.modules||[]).filter(function(m){ return m.name; });
   if(mods.length){
-    techWrap.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 6px;',text:t('Modules (ordre et parametrage)','Modules (order and setup)')}));
+    techWrap.appendChild(el('div',{class:'fld-lbl',style:'margin:2px 0 6px;',text:t('Modules (ordre et paramétrage)','Modules (order and setup)')}));
     techWrap.appendChild(moduleLegend());
     techWrap.appendChild(moduleGrid(te, false));
   }
-  if(te.recurrences) techWrap.appendChild(dl([[t('Modules a recurrences a verifier','Recurring modules to check'), te.recurrences]]));
+  if(te.recurrences) techWrap.appendChild(dl([[t('Modules a récurrences a vérifier','Recurring modules to check'), te.recurrences]]));
   // Comptes
   techWrap.appendChild(el('div',{class:'sub-h',style:'margin:6px 0 0;',text:t('Comptes ePack Manager','ePack Manager accounts')}));
   var accts=allManagerAccounts(a);
@@ -2621,11 +2709,11 @@ function renderFiche(c){
     accts.forEach(function(ac){
       var chip=ac.type==='super'?('<span class="chip mod-req">Super Admin</span>'):('<span class="chip">'+esc(acctLabel(ac.type))+'</span>');
       var email=ac.email?('<a class="link-ext" href="mailto:'+esc(ac.email)+'">'+esc(ac.email)+'</a>'):'-';
-      var src=ac.source==='contact'?t('Contact siege','HQ contact'):t('Autre','Other');
+      var src=ac.source==='contact'?t('Contact siège','HQ contact'):t('Autre','Other');
       var tr=el('tr'); tr.innerHTML='<td><b>'+esc(ac.name)+'</b></td><td>'+email+'</td><td>'+chip+'</td><td>'+esc(src)+'</td>'; ab.appendChild(tr);
     });
     at.appendChild(ab); techWrap.appendChild(at);
-  } else techWrap.appendChild(el('div',{class:'empty-note',text:t('Aucun compte manager renseigne.','No manager account provided.')}));
+  } else techWrap.appendChild(el('div',{class:'empty-note',text:t('Aucun compte manager renseigné.','No manager account provided.')}));
   var upEmail = te.updateAccount ? ('<a class="link-ext" href="mailto:'+esc(te.updateAccount)+'">'+esc(te.updateAccount)+'</a>') : null;
   techWrap.appendChild(dl([[t('Compte Update ePack','ePack Update account'), upEmail, upEmail?'html':null]]));
   // Listing
@@ -2643,16 +2731,16 @@ function renderFiche(c){
     techWrap.appendChild(ul);
   } else techWrap.appendChild(el('div',{class:'empty-note',text:t('Aucun point de vigilance.','No point of attention.')}));
   if(te.note) techWrap.appendChild(dl([[t('Autres consignes','Other instructions'), te.note]]));
-  fiche.appendChild(sec('Technique & parametrages','Technical & setup', techWrap, STEP_OWNERS[5]));
+  fiche.appendChild(sec('Technique & paramétrages','Technical & setup', techWrap, STEP_OWNERS[5]));
 
   // Historique
   if((a.history||[]).length){
     var ul=el('ul',{class:'hist-list'});
     a.history.slice().reverse().forEach(function(e){
       var when=new Date(e.ts||Date.now()).toLocaleString(EN()?'en-GB':'fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-      var act = e.action==='create'?t('Fiche creee','Sheet created')
-              : e.action==='import'?t('Fiche importee','Sheet imported')
-              : t('Modifiee','Modified')+((e.sections&&e.sections.length)?(' : '+e.sections.map(function(k){ return SECTION_LABELS[k]?(EN()?SECTION_LABELS[k][1]:SECTION_LABELS[k][0]):k; }).join(', ')):'');
+      var act = e.action==='create'?t('Fiche créée','Sheet created')
+              : e.action==='import'?t('Fiche importée','Sheet imported')
+              : t('Modifiée','Modified')+((e.sections&&e.sections.length)?(' : '+e.sections.map(function(k){ return SECTION_LABELS[k]?(EN()?SECTION_LABELS[k][1]:SECTION_LABELS[k][0]):k; }).join(', ')):'');
       var li=el('li');
       li.innerHTML='<span class="hist-when">'+esc(when)+'</span><span class="hist-user">'+esc(e.user||'-')+'</span><span class="hist-act">'+esc(act)+'</span>';
       ul.appendChild(li);
@@ -2664,12 +2752,12 @@ function renderFiche(c){
 }
 function priceRecap(arr, withCat){
   var items=arr.filter(function(p){ return p.label||p.price; });
-  if(!items.length) return el('div',{class:'empty-note',text:t('Aucune ligne renseignee.','No line provided.')});
+  if(!items.length) return el('div',{class:'empty-note',text:t('Aucune ligne renseignée.','No line provided.')});
   var tbl=el('table',{class:'mini-tbl'});
-  var head='<tr>'+(withCat?('<th style="width:130px;">'+esc(t('Categorie','Category'))+'</th>'):'')+'<th>'+esc(t('Designation','Item'))+'</th><th style="width:150px;">'+esc(t('Tarif','Price'))+'</th><th>'+esc(t('Remarque','Note'))+'</th></tr>';
+  var head='<tr>'+(withCat?('<th style="width:130px;">'+esc(t('Catégorie','Category'))+'</th>'):'')+'<th>'+esc(t('Désignation','Item'))+'</th><th style="width:150px;">'+esc(t('Tarif','Price'))+'</th><th>'+esc(t('Remarque','Note'))+'</th></tr>';
   tbl.innerHTML='<thead>'+head+'</thead>';
   var tb=el('tbody');
-  var catL={materiel:t('Materiel','Hardware'),option:t('Option','Option'),accessoire:t('Accessoire','Accessory')};
+  var catL={matériel:t('Matériel','Hardware'),option:t('Option','Option'),accessoire:t('Accessoire','Accessory')};
   items.forEach(function(p){
     var tr=el('tr');
     tr.innerHTML=(withCat?('<td>'+esc(catL[p.cat]||'-')+'</td>'):'')+'<td><b>'+esc(p.label||'-')+'</b></td><td>'+esc(p.price||'-')+'</td><td>'+esc(p.note||'')+'</td>';
@@ -2732,16 +2820,16 @@ function importFile(){
         }catch(e){ errs++; }
       });
       save();
-      if(errs) eppFlash(errs+' '+t('element(s) non reconnu(s) ou illisible(s).','item(s) not recognized or unreadable.'),{type:'err',timeout:3200});
-      if(added.length===1){ eppFlash(t('Fiche importee.','Sheet imported.'),{type:'ok',timeout:2000}); openAccount(added[0],true); }
-      else if(added.length>1){ eppFlash(added.length+' '+t('fiches importees.','sheets imported.'),{type:'ok',timeout:2600}); goHome(); }
+      if(errs) eppFlash(errs+' '+t('élément(s) non reconnu(s) ou illisible(s).','item(s) not recognized or unreadable.'),{type:'err',timeout:3200});
+      if(added.length===1){ eppFlash(t('Fiche importée.','Sheet imported.'),{type:'ok',timeout:2000}); openAccount(added[0],true); }
+      else if(added.length>1){ eppFlash(added.length+' '+t('fiches importées.','sheets imported.'),{type:'ok',timeout:2600}); goHome(); }
       else if(!errs){ goHome(); }
     }
     files.forEach(function(f){
       if(/\.zip$/i.test(f.name) || (f.type||'').indexOf('zip')>=0){
         f.arrayBuffer().then(extractZipJsons).then(function(list){
           if(!list.length) errs++; list.forEach(function(x){ texts.push(x); });
-        }).catch(function(){ errs++; eppFlash(t('Impossible de lire le .zip (dezippe et importe les .json).','Could not read the .zip (unzip and import the .json).'),{type:'err',timeout:3800}); }).then(tick);
+        }).catch(function(){ errs++; eppFlash(t('Impossible de lire le .zip (dézippe et importe les .json).','Could not read the .zip (unzip and import the .json).'),{type:'err',timeout:3800}); }).then(tick);
       } else {
         var r=new FileReader();
         r.onload=function(){ texts.push(r.result); tick(); };
@@ -2752,15 +2840,16 @@ function importFile(){
   });
   document.body.appendChild(inp); inp.click(); setTimeout(function(){ inp.remove(); },0);
 }
-/* Complete une fiche importee avec les champs manquants (compatibilite ascendante). */
+/* Complete une fiche importée avec les champs manquants (compatibilite ascendante). */
 function normalizeAccount(a){
   var b=blankAccount();
   a.id=a.id||b.id;
   a.group=Object.assign({},b.group,a.group||{});
   if(!Array.isArray(a.group.brands)||!a.group.brands.length) a.group.brands=[''];
   if(!Array.isArray(a.group.zones)||!a.group.zones.length) a.group.zones=[''];
-  a.contacts=Array.isArray(a.contacts)&&a.contacts.length?a.contacts.map(function(c){ return Object.assign(blankContact(),c); }):[blankContact()];
+  a.contacts=Array.isArray(a.contacts)&&a.contacts.length?a.contacts.map(function(c){ var cc=Object.assign(blankContact(),c); cc.scope=asList(cc.scope); return cc; }):[blankContact()];
   a.internal=Object.assign({},b.internal,a.internal||{}); if(!Array.isArray(a.internal.others)) a.internal.others=[];
+  a.internal.csm=asList(a.internal.csm); a.internal.qm=asList(a.internal.qm);
   a.commercial=Object.assign({},b.commercial,a.commercial||{});
   if(!Array.isArray(a.commercial.prices)) a.commercial.prices=[];
   if(!Array.isArray(a.commercial.consumables)) a.commercial.consumables=[];
@@ -2781,17 +2870,17 @@ function normalizeAccount(a){
 }
 function askDelete(a){
   confirmBox(t('Supprimer cette fiche ?','Delete this sheet?'),
-    t('La fiche "'+(a.group.name||'(sans nom)')+'" sera definitivement supprimee de ce navigateur. Pense a l\'exporter avant si besoin.',
+    t('La fiche "'+(a.group.name||'(sans nom)')+'" sera définitivement supprimée de ce navigateur. Pense a l\'exporter avant si besoin.',
       'The sheet "'+(a.group.name||'(untitled)')+'" will be permanently removed from this browser. Export it first if needed.'),
     t('Supprimer','Delete'), function(){
       var i=DB.accounts.indexOf(a); if(i>=0) DB.accounts.splice(i,1); save();
       if(CUR===a){ CUR=null; VIEW='home'; }
       renderAll();
-      eppFlash(t('Fiche supprimee.','Sheet deleted.'),{type:'ok',timeout:1800});
+      eppFlash(t('Fiche supprimée.','Sheet deleted.'),{type:'ok',timeout:1800});
     });
 }
 
-/* ---------- Confirmation maison (reutilise .epp-modal) ---------- */
+/* ---------- Confirmation maison (réutilise .epp-modal) ---------- */
 function confirmBox(title, msg, okLabel, onOk){
   var ov=el('div',{class:'epp-modal-ov open'});
   var modal=el('div',{class:'epp-modal',role:'dialog','aria-modal':'true'});
@@ -2814,10 +2903,10 @@ function confirmBox(title, msg, okLabel, onOk){
 }
 
 /* =========================================================================
-   DEMARRAGE (apres le chrome ePackPro)
+   DEMARRAGE (après le chrome ePackPro)
    ========================================================================= */
 /* ---------- Identite dans le header (definit la vue / role) ---------- */
-function identityDisplay(){ if(USER.name) return USER.name; if(USER.role&&USER.role!=='all') return ROLE_LABEL[USER.role]||USER.role; return t('Vue complete (tous)','Full view (all)'); }
+function identityDisplay(){ if(USER.name) return USER.name; if(USER.role&&USER.role!=='all') return ROLE_LABEL[USER.role]||USER.role; return t('Vue complète (tous)','Full view (all)'); }
 function updateIdentityLabel(){
   var w=document.getElementById('idPick'); if(!w) return;
   var lbl=w.querySelector('.id-lbl'); if(lbl) lbl.textContent=identityDisplay();
@@ -2825,7 +2914,7 @@ function updateIdentityLabel(){
 }
 function buildIdentityPicker(){
   var cluster=document.querySelector('.top .cluster'); if(!cluster || document.getElementById('idPick')) return;
-  var wrap=el('div',{class:'id-pick',id:'idPick',role:'button',tabindex:'0',title:t('Qui es-tu ? (definit ta vue)','Who are you? (sets your view)')});
+  var wrap=el('div',{class:'id-pick',id:'idPick',role:'button',tabindex:'0',title:t('Qui es-tu ? (définit ta vue)','Who are you? (sets your view)')});
   wrap.innerHTML='<svg class="id-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>'+
     '<span class="id-lbl"></span>'+
     '<svg class="id-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
@@ -2847,7 +2936,7 @@ function askIdentity(){
   modal.appendChild(head);
   ov.addEventListener('click',function(e){ if(e.target===ov) ov.remove(); });
   var body=el('div',{class:'em-body',style:'max-height:72vh;overflow:auto;'});
-  body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 6px;',text:t('Selectionne-toi dans la liste : la vue s\'adapte a ton role (modifiable en haut a droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
+  body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 6px;',text:t('Sélectionné-toi dans la liste : la vue s\'adapté a ton rôle (modifiable en haut a droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
   var glist=el('div',{class:'id-grid'});
   function grp(txt, role){ glist.appendChild(el('div',{class:'id-grp em-lbl'+(role?(' role-pill '+rcClass(role)):''),text:txt})); }
   function pick(label, token){ glist.appendChild(el('button',{class:'btn btn-ghost id-opt',text:label,onclick:function(){ ov.remove(); setUserFromToken(token); }})); }
@@ -2859,7 +2948,7 @@ function askIdentity(){
   });
   body.appendChild(glist);
   body.appendChild(el('div',{style:'border-top:1px solid var(--border);margin:8px 0 4px;'}));
-  var allBtn=el('button',{class:'btn btn-ghost',style:'width:100%;justify-content:flex-start;',text:t('Vue complete (tous)','Full view (all)'),onclick:function(){ ov.remove(); setUserFromToken('all'); }});
+  var allBtn=el('button',{class:'btn btn-ghost',style:'width:100%;justify-content:flex-start;',text:t('Vue complète (tous)','Full view (all)'),onclick:function(){ ov.remove(); setUserFromToken('all'); }});
   body.appendChild(allBtn);
   modal.appendChild(body); ov.appendChild(modal); document.body.appendChild(ov);
 }
@@ -2869,7 +2958,7 @@ function maybeSeed(){
   var seeded=false; try{ seeded=localStorage.getItem('eppGCSeeded')==='1'; }catch(e){}
   if(seeded) return;
   try{ localStorage.setItem('eppGCSeeded','1'); }catch(e){}
-  if(DB.accounts.length) return; // l'utilisateur a deja des fiches -> ne pas semer
+  if(DB.accounts.length) return; // l'utilisateur a déjà des fiches -> ne pas semer
   var seed=(window.EPP_SEED||[]);
   seed.forEach(function(a){ try{ var acc=normalizeAccount(JSON.parse(JSON.stringify(a))); acc.id=uid(); DB.accounts.push(acc); }catch(e){} });
   if(seed.length) save();
