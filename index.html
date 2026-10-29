@@ -664,8 +664,7 @@ html.epp-dark .reveal{border-left-color:var(--lime);}
 
 /* ---- Cartes de la liste d'accueil ---- */
 .gc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
-.gc-card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s;cursor:pointer;}
-.gc-card:hover{border-color:var(--border-strong);}
+.gc-card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;}
 /* Bouton Supprimer : coin haut-droit, visible au survol de la carte */
 .gc-del{position:absolute;top:9px;right:9px;z-index:5;display:inline-grid;place-items:center;width:30px;height:30px;padding:0;
   background:var(--red);color:#fff;border:none;border-radius:8px;cursor:pointer;
@@ -806,6 +805,16 @@ html.epp-dark .gc-card.incomplete:hover{border-color:#ffc84d;}
 .id-grid .id-grp:first-child{margin-top:0;}
 .id-grid .id-opt{width:100%;justify-content:flex-start;margin:0;}
 @media(max-width:520px){ .id-grid{grid-template-columns:1fr;} }
+
+/* ---- Historique des modifications ---- */
+.hist-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;}
+.hist-list li{display:grid;grid-template-columns:140px 170px 1fr;gap:10px;padding:7px 2px;border-bottom:1px solid var(--border);font-size:13px;align-items:baseline;}
+.hist-list li:last-child{border-bottom:none;}
+.hist-when{color:var(--muted);font-variant-numeric:tabular-nums;font-weight:600;}
+.hist-user{font-weight:800;color:var(--title);}
+.hist-act{color:var(--text);}
+@media(max-width:640px){ .hist-list li{grid-template-columns:1fr;gap:1px;} }
+.gc-upd{font-size:11px;color:var(--muted);font-weight:600;}
 
 /* ---- Confirmation (reutilise .epp-modal) ---- */
 .confirm-body{font-size:13.5px;color:var(--text);line-height:1.5;}
@@ -1610,7 +1619,8 @@ function blankAccount(){
     internal:{ qm:'', csm:'', cp:'', sales:'', others:[] },
     commercial:{ frameContract:false, priceRef:'', prices:[], consumables:[], consumableNote:'', history:'' },
     deploy:{ sitesEquipped:'', sitesToEquip:'', cadence:'', planningUrl:'', planningFreq:'', planningRecipient:'', planningHide:'', refSiteProvided:false, refSite:'' },
-    tech:{ paramTypeUrl:'', paramLangs:'', modules:[], recurrences:'', managerAccounts:[], updateAccount:'', listingUrl:'', vigilance:[], note:'' }
+    tech:{ paramTypeUrl:'', paramLangs:'', modules:[], recurrences:'', managerAccounts:[], updateAccount:'', listingUrl:'', vigilance:[], note:'' },
+    history:[]
   };
 }
 function blankContact(){ return { firstName:'', lastName:'', role:'', email:'', phone:'', scope:'', account:'' }; }
@@ -1773,10 +1783,10 @@ function setHead(title, crumb){
   var h=document.querySelector('.top h1'); if(h) h.textContent=title;
   var c=document.querySelector('.top .crumb'); if(c) c.textContent=crumb||'';
 }
-function goHome(){ VIEW='home'; CUR=null; renderAll(); window.scrollTo(0,0); }
-function newAccount(){ var a=blankAccount(); DB.accounts.push(a); save(); CUR=a; VIEW='editor'; STEP=0; renderAll(); window.scrollTo(0,0); }
-function openAccount(a, asFiche){ CUR=a; VIEW=asFiche?'fiche':'editor'; STEP=0; renderAll(); window.scrollTo(0,0); }
-function gotoStep(i){ if(i===6){ VIEW='fiche'; } else { VIEW='editor'; STEP=i; } renderAll(); window.scrollTo(0,0); }
+function goHome(){ if(CUR) logSave(); VIEW='home'; CUR=null; SNAP=null; renderAll(); window.scrollTo(0,0); }
+function newAccount(){ var a=blankAccount(); DB.accounts.push(a); CUR=a; pushHistory('create'); save(); VIEW='editor'; STEP=0; snapshot(); renderAll(); window.scrollTo(0,0); }
+function openAccount(a, asFiche){ CUR=a; VIEW=asFiche?'fiche':'editor'; STEP=0; snapshot(); renderAll(); window.scrollTo(0,0); }
+function gotoStep(i){ if(i===6){ logSave(); VIEW='fiche'; } else { VIEW='editor'; STEP=i; } renderAll(); window.scrollTo(0,0); }
 
 function renderAll(){
   buildSidebarNav();
@@ -1841,7 +1851,7 @@ function renderHome(c){
 
 function gcCard(a){
   var g=a.group;
-  var card=el('div',{class:'gc-card',onclick:function(e){ if(e.target.closest('.gc-actions')||e.target.closest('.gc-del')) return; openAccount(a,false); }});
+  var card=el('div',{class:'gc-card'});
   // Supprimer : coin haut-droit, visible au survol
   var bDel=el('button',{class:'gc-del',title:t('Supprimer','Delete'),'aria-label':t('Supprimer','Delete'),onclick:function(){ askDelete(a); }});
   bDel.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
@@ -1886,6 +1896,8 @@ function gcCard(a){
   var prog=el('div',{class:'gc-prog'});
   prog.innerHTML='<div class="gc-bar"><i style="width:'+Math.round(n/6*100)+'%"></i></div><span class="gc-prog-lbl">'+n+'/6</span>';
   card.appendChild(prog);
+  var last=(a.history||[]).length ? a.history[a.history.length-1] : null;
+  if(last) card.appendChild(el('div',{class:'gc-upd',text:t('Maj','Upd')+' '+new Date(last.ts).toLocaleDateString(EN()?'en-GB':'fr-FR')+' - '+last.user}));
 
   var act=el('div',{class:'gc-actions'});
   var bView=el('button',{class:'btn btn-view',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,true); }});
@@ -1901,6 +1913,22 @@ function gcCard(a){
    VUE EDITEUR : une etape du formulaire
    ========================================================================= */
 function touch(){ CUR.updatedAt=Date.now(); save(); }
+
+/* ---------- Historique des modifications (par section) ---------- */
+var SNAP=null;
+var HIST_SECTIONS=['group','contacts','internal','commercial','deploy','tech'];
+var SECTION_LABELS={group:['Le groupe','The group'],contacts:['Contacts siege','HQ contacts'],internal:['Notre equipe','Our team'],commercial:['Commercial','Commercial'],deploy:['Deploiement','Rollout'],tech:['Technique & parametrages','Technical & setup']};
+function sectionData(a){ var o={}; HIST_SECTIONS.forEach(function(k){ o[k]=JSON.stringify(a[k]); }); return o; }
+function snapshot(){ SNAP = CUR ? sectionData(CUR) : null; }
+function currentUserLabel(){ return USER.name || (USER.role&&USER.role!=='all'?ROLE_LABEL[USER.role]:'') || t('(non identifie)','(unidentified)'); }
+function pushHistory(action, sections){ if(!CUR) return; if(!Array.isArray(CUR.history)) CUR.history=[]; CUR.history.push({ts:Date.now(), user:currentUserLabel(), action:action, sections:sections||[]}); }
+function logSave(){
+  if(!CUR){ return; }
+  if(!SNAP){ snapshot(); return; }
+  var cur=sectionData(CUR), changed=[];
+  HIST_SECTIONS.forEach(function(k){ if(cur[k]!==SNAP[k]) changed.push(k); });
+  if(changed.length){ pushHistory('modify', changed); SNAP=cur; CUR.updatedAt=Date.now(); save(); }
+}
 
 function field(labelFr, labelEn, control, opts){
   opts=opts||{};
@@ -2021,7 +2049,7 @@ function wizFoot(){
   foot.appendChild(el('span',{class:'wiz-progress',text:t('Etape','Step')+' '+(STEP+1)+' / 6'}));
   foot.appendChild(el('span',{class:'spacer'}));
 
-  var bSave=el('button',{class:'btn btn-save',onclick:function(){ touch(); eppFlash(t('Fiche enregistree','Sheet saved'),{type:'ok',timeout:1800}); }});
+  var bSave=el('button',{class:'btn btn-save',onclick:function(){ logSave(); eppFlash(t('Fiche enregistree','Sheet saved'),{type:'ok',timeout:1800}); }});
   bSave.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/></svg>'+t('Enregistrer','Save');
   foot.appendChild(bSave);
 
@@ -2615,6 +2643,21 @@ function renderFiche(c){
   if(te.note) techWrap.appendChild(dl([[t('Autres consignes','Other instructions'), te.note]]));
   fiche.appendChild(sec('Technique & parametrages','Technical & setup', techWrap, STEP_OWNERS[5]));
 
+  // Historique
+  if((a.history||[]).length){
+    var ul=el('ul',{class:'hist-list'});
+    a.history.slice().reverse().forEach(function(e){
+      var when=new Date(e.ts||Date.now()).toLocaleString(EN()?'en-GB':'fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+      var act = e.action==='create'?t('Fiche creee','Sheet created')
+              : e.action==='import'?t('Fiche importee','Sheet imported')
+              : t('Modifiee','Modified')+((e.sections&&e.sections.length)?(' : '+e.sections.map(function(k){ return SECTION_LABELS[k]?(EN()?SECTION_LABELS[k][1]:SECTION_LABELS[k][0]):k; }).join(', ')):'');
+      var li=el('li');
+      li.innerHTML='<span class="hist-when">'+esc(when)+'</span><span class="hist-user">'+esc(e.user||'-')+'</span><span class="hist-act">'+esc(act)+'</span>';
+      ul.appendChild(li);
+    });
+    fiche.appendChild(sec('Historique','History', ul));
+  }
+
   c.appendChild(fiche);
 }
 function priceRecap(arr, withCat){
@@ -2681,7 +2724,9 @@ function importFile(){
       var added=[];
       texts.forEach(function(txt){
         try{ var o=JSON.parse(txt); var acc=o&&o.account?o.account:(o&&o.group?o:null);
-          if(acc&&acc.group){ acc=normalizeAccount(acc); acc.id=uid(); if(!acc.updatedAt) acc.updatedAt=Date.now(); DB.accounts.push(acc); added.push(acc); } else errs++;
+          if(acc&&acc.group){ acc=normalizeAccount(acc); acc.id=uid(); if(!acc.updatedAt) acc.updatedAt=Date.now();
+            acc.history.push({ts:Date.now(),user:currentUserLabel(),action:'import',sections:[]});
+            DB.accounts.push(acc); added.push(acc); } else errs++;
         }catch(e){ errs++; }
       });
       save();
@@ -2729,6 +2774,7 @@ function normalizeAccount(a){
     else a.tech.modules=[];
   }
   delete a.tech.variableModules;
+  if(!Array.isArray(a.history)) a.history=[];
   return a;
 }
 function askDelete(a){
