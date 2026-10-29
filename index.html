@@ -1860,6 +1860,21 @@ function renderAll(){
   if(VIEW==='home') renderHome(c);
   else if(VIEW==='editor') renderEditor(c);
   else if(VIEW==='fiche') renderFiche(c);
+  adjustTopBtn();
+}
+/* Remonte le bouton "haut de page" (#epp-scroll-top, socle) au-dessus de la barre
+   d'actions collante (.wiz-foot) pour eviter qu'il la chevauche en bas de page. */
+function adjustTopBtn(){
+  try{
+    var fab=document.getElementById('epp-scroll-top'); if(!fab) return;
+    var foot=document.querySelector('.content .wiz-foot');
+    if(foot && getComputedStyle(foot).position==='sticky' && foot.offsetParent!==null){
+      var vh=window.innerHeight||document.documentElement.clientHeight;
+      var r=foot.getBoundingClientRect();
+      // place le bas du FAB juste au-dessus du haut de la barre d'actions (coords viewport)
+      fab.style.bottom=Math.max(22, Math.round(vh - r.top) + 14)+'px';
+    } else { fab.style.bottom=''; }
+  }catch(e){}
 }
 
 /* =========================================================================
@@ -3085,6 +3100,9 @@ function boot(){
   var br=document.querySelector('.brand'); if(br) br.addEventListener('click',function(e){ e.preventDefault(); goHome(); });
   buildIdentityPicker();
   renderAll();
+  window.addEventListener('scroll', adjustTopBtn, true);
+  window.addEventListener('resize', adjustTopBtn);
+  setTimeout(adjustTopBtn, 60); // le FAB du socle peut etre cree juste apres
   if(first) askIdentity();
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(boot,0); });
