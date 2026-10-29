@@ -605,8 +605,8 @@ html.epp-dark .epp-radio:checked::after{background:var(--lime);}
 .mine-chip.no{background:var(--surface-2);color:var(--muted);border:1px solid var(--border);}
 
 /* ---- Couleurs par role / service interne ---- */
-.rc-sales{--rc:#1f9d55;} .rc-csm{--rc:#e02020;} .rc-qm{--rc:#2563eb;} .rc-support{--rc:#7c3aed;} .rc-cp{--rc:#f96c1e;}
-html.epp-dark .rc-sales{--rc:#6ee7a8;} html.epp-dark .rc-csm{--rc:#f87171;} html.epp-dark .rc-qm{--rc:#7ab0ff;} html.epp-dark .rc-support{--rc:#c4b5fd;} html.epp-dark .rc-cp{--rc:#fdba74;}
+.rc-sales{--rc:#e02020;} .rc-csm{--rc:#1f9d55;} .rc-qm{--rc:#2563eb;} .rc-support{--rc:#7c3aed;} .rc-cp{--rc:#f96c1e;}
+html.epp-dark .rc-sales{--rc:#f87171;} html.epp-dark .rc-csm{--rc:#6ee7a8;} html.epp-dark .rc-qm{--rc:#7ab0ff;} html.epp-dark .rc-support{--rc:#c4b5fd;} html.epp-dark .rc-cp{--rc:#fdba74;}
 .role-pill{color:var(--rc)!important;}
 .chip.role-pill{border-color:var(--rc)!important;background:color-mix(in srgb,var(--rc) 12%,transparent);}
 .fld-lbl.role-pill{font-weight:800;}
@@ -1824,7 +1824,7 @@ function gcCard(a){
     var ownRole = (USER.role==='qm' && nameMatch(a.internal.qm, USER.name)) ? 'qm'
                 : (USER.role==='csm' && nameMatch(a.internal.csm, USER.name)) ? 'csm' : '';
     if(ownRole){
-      var col = ownRole==='qm' ? '#2563eb' : '#e02020';
+      var col = ownRole==='qm' ? '#2563eb' : '#1f9d55';
       var ob=el('span',{class:'gc-own',title:t('Tu es le ','You are the ')+ROLE_LABEL[ownRole]+t(' de ce groupe',' of this group'),style:'background:'+col+';'});
       ob.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.7-8 6v1h16v-1c0-3.3-3.6-6-8-6z"/></svg>';
       card.appendChild(ob);
