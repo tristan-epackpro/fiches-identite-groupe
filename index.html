@@ -708,10 +708,12 @@ html.epp-dark .id-pick .id-ic{stroke:var(--rc,var(--lime));}
 /* ---- Barre alphabetique (accueil) ---- */
 .alpha-bar{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:0 0 4px;}
 .alpha-bar button{min-width:28px;height:28px;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:7px;font-size:12px;font-weight:800;cursor:pointer;padding:0 6px;transition:border-color .12s,color .12s,background .12s;}
-.alpha-bar button:hover:not(:disabled){border-color:var(--brand);color:var(--brand);}
-html.epp-dark .alpha-bar button:hover:not(:disabled){border-color:var(--lime);color:var(--lime);}
+.alpha-bar button:hover:not(:disabled){border-color:var(--brand);background:var(--brand);color:#fff;}
 .alpha-bar button.active{background:var(--brand);color:#fff;border-color:var(--brand);}
+.alpha-bar button.active:hover:not(:disabled){background:var(--brand);color:#fff;}
+html.epp-dark .alpha-bar button:hover:not(:disabled){border-color:var(--lime);background:var(--lime);color:#14301f;}
 html.epp-dark .alpha-bar button.active{background:#4f9b86;border-color:#4f9b86;color:#fff;}
+html.epp-dark .alpha-bar button.active:hover:not(:disabled){background:var(--lime);border-color:var(--lime);color:#14301f;}
 .alpha-bar button:disabled{opacity:.3;cursor:default;}
 .alpha-bar .alpha-all{min-width:auto;padding:0 11px;}
 
@@ -784,10 +786,10 @@ details.mod-details[open] > summary .chev{transform:rotate(180deg);}
 /* ---- Conventions de couleur des boutons ---- */
 /* Boutons rectangulaires generiques : survol deepgreen (hors destructifs / Voir / Enregistrer-Modifier) */
 .btn-ghost:hover{background:var(--brand);color:#fff;border-color:var(--brand);}
-/* Enregistrer / Modifier / Valider : fond vert pale, survol deepgreen */
-.btn-save{background:#dcefc8;color:#1b3a12;border:1px solid transparent;}
+/* Enregistrer / Modifier / Valider : fond vert #4f9b86, survol deepgreen */
+.btn-save{background:#4f9b86;color:#fff;border:1px solid transparent;}
 .btn-save:hover{background:var(--brand);color:#fff;}
-html.epp-dark .btn-save{background:rgba(155,249,68,.16);color:#bfe9a0;}
+html.epp-dark .btn-save{background:#4f9b86;color:#fff;}
 html.epp-dark .btn-save:hover{background:var(--brand);color:#fff;}
 /* Voir la fiche : fond bleu, plus fonce au survol */
 .btn-view{background:#273a80;color:#fff;border:1px solid transparent;}
