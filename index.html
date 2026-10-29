@@ -673,6 +673,9 @@ html.epp-dark .reveal{border-left-color:var(--lime);}
 .gc-card:hover .gc-del,.gc-card:focus-within .gc-del{opacity:1;pointer-events:auto;}
 .gc-del:hover{background:#a81717;}
 .gc-del svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* Badge "proprietaire" (QM/CSM identifie) : cercle de couleur + silhouette blanche, centre sur le coin haut-droit */
+.gc-own{position:absolute;top:0;right:0;transform:translate(50%,-50%);z-index:4;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;box-shadow:0 1px 5px rgba(0,0,0,.35);border:2px solid var(--surface);}
+.gc-own svg{width:15px;height:15px;fill:#fff;}
 /* Personnes en charge (CSM puis QM) empilees sous les tags */
 .gc-people{display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
 .gc-card .gc-top{display:flex;align-items:flex-start;gap:10px;padding-right:20px;}
@@ -1562,6 +1565,9 @@ function exportModulesPng(acc){
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function slug(s){ return (String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))||'grand-compte'; }
 function firstLetter(name){ var s=String(name||'').trim().normalize('NFD').replace(/[̀-ͯ]/g,''); var m=s.match(/[A-Za-z]/); return m?m[0].toUpperCase():'#'; }
+/* Comparaison de noms tolerante (ordre nom/prenom, accents, ponctuation). */
+function nameKey(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(Boolean).sort().join(' '); }
+function nameMatch(a,b){ var ka=nameKey(a),kb=nameKey(b); return !!ka&&ka===kb; }
 
 /* ---------- Stockage ---------- */
 var KEY='eppGC_v1';
@@ -1624,8 +1630,11 @@ var QM_LIST=['Sylvain HAMELIN','Nathan LAFEZ','Marion LE STANG'];
 var CSM_QM={ 'Guillaume TAVERNIERS':'Sylvain HAMELIN','Lauriane GOUISSEM':'Nathan LAFEZ','Cynthia LOBET':'Marion LE STANG' };
 
 /* ---------- Matrice de responsabilite (qui renseigne quoi) ---------- */
-var ROLE_LABEL={ sales:'KAM', csm:'CSM', qm:'QM', cp:'CP (Customer Planner)', support:'Customer Support' };
-var ROLE_SHORT={ sales:'KAM', csm:'CSM', qm:'QM', cp:'CP', support:'CS' };
+var ROLE_LABEL={ sales:'KAM', csm:'CSM', qm:'QM', cp:'CP', support:'CS' };
+var ROLE_SHORT=ROLE_LABEL;
+var ROLE_FULL={ sales:'KAM (Key Account Manager)', csm:'CSM (Customer Success Manager)', qm:'QM (Quality Manager)', cp:'CP (Customer Planner)', support:'CS (Customer Support)' };
+var IDENTITY_ORDER=['sales','csm','qm','support','cp'];   // KAM, CSM, QM, CS, CP
+function roleToken(role){ return '_'+role; }
 function rcClass(role){ return 'rc-'+role; }
 var STEP_OWNERS={ 0:['sales','csm'], 1:['csm','sales'], 2:['csm'], 3:['sales'], 4:['csm'], 5:['qm','csm'] };
 function ownerTag(roles){
@@ -1651,13 +1660,11 @@ var PEOPLE=[
 var USER={name:'',role:'all'};
 try{ var _u=JSON.parse(localStorage.getItem('eppGCUser')||'null'); if(_u&&_u.role) USER={name:_u.name||'',role:_u.role}; }catch(e){}
 var ROLE=USER.role||'all';   // vue : all | qm | csm | sales | cp
-function userSelValue(){ return USER.name ? USER.name : (USER.role==='sales'?'_sales':USER.role==='cp'?'_cp':USER.role==='support'?'_support':'all'); }
+function userSelValue(){ return USER.name ? USER.name : (USER.role&&USER.role!=='all' ? '_'+USER.role : 'all'); }
 function setUserFromToken(v){
-  if(v==='all') setUser('','all');
-  else if(v==='_sales') setUser('','sales');
-  else if(v==='_cp') setUser('','cp');
-  else if(v==='_support') setUser('','support');
-  else { var p=null; PEOPLE.forEach(function(x){ if(x.name===v) p=x; }); setUser(v, p?p.role:'all'); }
+  if(v==='all'){ setUser('','all'); return; }
+  if(v.charAt(0)==='_'){ setUser('', v.slice(1)); return; }
+  var p=null; PEOPLE.forEach(function(x){ if(x.name===v) p=x; }); setUser(v, p?p.role:'all');
 }
 function setUser(name, role){
   USER={name:name||'',role:role||'all'}; ROLE=USER.role;
@@ -1812,6 +1819,17 @@ function gcCard(a){
   var bDel=el('button',{class:'gc-del',title:t('Supprimer','Delete'),onclick:function(){ askDelete(a); }});
   bDel.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span>'+esc(t('Supprimer','Delete'))+'</span>';
   card.appendChild(bDel);
+  // Badge "propriete" : si la personne identifiee (QM/CSM) est responsable de ce groupe
+  if(USER.name){
+    var ownRole = (USER.role==='qm' && nameMatch(a.internal.qm, USER.name)) ? 'qm'
+                : (USER.role==='csm' && nameMatch(a.internal.csm, USER.name)) ? 'csm' : '';
+    if(ownRole){
+      var col = ownRole==='qm' ? '#2563eb' : '#e02020';
+      var ob=el('span',{class:'gc-own',title:t('Tu es le ','You are the ')+ROLE_LABEL[ownRole]+t(' de ce groupe',' of this group'),style:'background:'+col+';'});
+      ob.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.7-8 6v1h16v-1c0-3.3-3.6-6-8-6z"/></svg>';
+      card.appendChild(ob);
+    }
+  }
   var top=el('div',{class:'gc-top'});
   var info=el('div',{style:'flex:1 1 auto;min-width:0;'});
   info.appendChild(el('div',{class:'gc-name',text:g.name||t('(Sans nom)','(Untitled)')}));
@@ -2083,21 +2101,24 @@ function stepTeam(box){
     "Qui est qui chez nous sur ce compte. Les roles cles d'abord, puis tout autre interlocuteur interne utile.",
     "Who is who on our side for this account. Key roles first, then any other useful internal contact.")}));
   var grid=el('div',{class:'form-grid'});
+  // Ordre : KAM, CSM, QM, CP
+  grid.appendChild(field('KAM','KAM', inputText(n.sales,function(v){ n.sales=v; touch(); }),
+    {role:'sales', hint:['Key Account Manager (ex-"Sales").','Key Account Manager (formerly "Sales").']}));
   // CSM : liste connue + QM attitre auto-rempli au choix du CSM
   var csmWrap=inputList(n.csm, CSM_LIST, function(v){ n.csm=v; touch(); },'Guillaume TAVERNIERS, Lauriane GOUISSEM...');
   csmWrap.__input.addEventListener('change',function(){
     var q=CSM_QM[n.csm];
     if(q){ n.qm=q; touch(); renderEditor($content()); }
   });
-  grid.appendChild(field('CSM (Customer Success Manager)','CSM (Customer Success Manager)', csmWrap,
+  grid.appendChild(field('CSM','CSM', csmWrap,
     {role:'csm', hint:['Marie VERDIER : Club Med et quelques groupes etranger. Gerda MEVEL-DE BACKER : BENELUX / distributeurs (Suisse, DROM-TOM).',
            'Marie VERDIER: Club Med and a few foreign groups. Gerda MEVEL-DE BACKER: BENELUX / distributors (Switzerland, DROM-TOM).']}));
-  grid.appendChild(field('QM (Quality Manager)','QM (Quality Manager)',
+  grid.appendChild(field('QM','QM',
     inputList(n.qm, QM_LIST, function(v){ n.qm=v; touch(); },'Sylvain HAMELIN, Nathan LAFEZ...'),
     {role:'qm', hint:['QM attitre pre-rempli selon le CSM (modifiable). D\'autres QM peuvent etre designes dans "Autres interlocuteurs".',
            'Assigned QM pre-filled from the CSM (editable). Other QMs can be added in "Other contacts".']}));
-  grid.appendChild(field('CP (Customer Planner)','CP (Customer Planner)', inputText(n.cp,function(v){ n.cp=v; touch(); }), {role:'cp'}));
-  grid.appendChild(field('KAM (Key Account Manager)','KAM (Key Account Manager)', inputText(n.sales,function(v){ n.sales=v; touch(); }), {role:'sales'}));
+  grid.appendChild(field('CP','CP', inputText(n.cp,function(v){ n.cp=v; touch(); }),
+    {role:'cp', hint:['Customer Planner (consultation).','Customer Planner (read-only).']}));
   box.appendChild(grid);
 
   box.appendChild(el('div',{class:'sub-h',text:t('Autres interlocuteurs internes','Other internal contacts')}));
@@ -2481,7 +2502,7 @@ function renderFiche(c){
 
   // 3. Notre equipe
   var n=a.internal;
-  var tPairs=[[ 'QM', n.qm],['CSM', n.csm],['CP (Customer Planner)', n.cp],['KAM', n.sales]];
+  var tPairs=[['KAM', n.sales],['CSM', n.csm],['QM', n.qm],['CP', n.cp]];
   n.others.filter(function(o){ return o.role||o.name; }).forEach(function(o){ tPairs.push([o.role||t('Autre','Other'), o.name]); });
   fiche.appendChild(sec('Notre equipe','Our team', dl(tPairs), STEP_OWNERS[2]));
 
@@ -2727,9 +2748,13 @@ function buildIdentityPicker(){
   var curVal = userSelValue();
   function opt(v,l){ var o=el('option',{value:v,text:l}); if(v===curVal) o.selected=true; return o; }
   sel.appendChild(opt('all', t('Vue complete (tous)','Full view (all)')));
-  var gq=el('optgroup',{label:'QM'}); PEOPLE.filter(function(p){return p.role==='qm';}).forEach(function(p){ gq.appendChild(opt(p.name,p.name)); }); sel.appendChild(gq);
-  var gc=el('optgroup',{label:'CSM'}); PEOPLE.filter(function(p){return p.role==='csm';}).forEach(function(p){ gc.appendChild(opt(p.name,p.name)); }); sel.appendChild(gc);
-  var go=el('optgroup',{label:t('Autres','Other')}); go.appendChild(opt('_sales','KAM')); go.appendChild(opt('_cp','CP (Customer Planner)')); go.appendChild(opt('_support','Customer Support')); sel.appendChild(go);
+  IDENTITY_ORDER.forEach(function(role){
+    var ppl=PEOPLE.filter(function(p){ return p.role===role; });
+    var og=el('optgroup',{label:ROLE_LABEL[role]});
+    if(ppl.length) ppl.forEach(function(p){ og.appendChild(opt(p.name,p.name)); });
+    else og.appendChild(opt(roleToken(role), ROLE_LABEL[role]));
+    sel.appendChild(og);
+  });
   sel.addEventListener('change',function(){ setUserFromToken(sel.value); });
   wrap.appendChild(sel);
   cluster.insertBefore(wrap, cluster.firstChild);
@@ -2747,9 +2772,12 @@ function askIdentity(){
   body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 4px;',text:t('Selectionne-toi dans la liste : la vue s\'adapte a ton role (modifiable en haut a droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
   function grp(txt, role){ body.appendChild(el('div',{class:'em-lbl'+(role?(' role-pill '+rcClass(role)):''),text:txt})); }
   function pick(label, token){ var b=el('button',{class:'btn btn-ghost',style:'width:100%;justify-content:flex-start;margin:3px 0;',text:label,onclick:function(){ ov.remove(); setUserFromToken(token); }}); body.appendChild(b); }
-  grp('QM','qm'); PEOPLE.filter(function(p){return p.role==='qm';}).forEach(function(p){ pick(p.name, p.name); });
-  grp('CSM','csm'); PEOPLE.filter(function(p){return p.role==='csm';}).forEach(function(p){ pick(p.name, p.name); });
-  grp(t('Autres','Other')); pick('KAM','_sales'); pick('CP (Customer Planner)','_cp'); pick('Customer Support','_support');
+  IDENTITY_ORDER.forEach(function(role){
+    grp(ROLE_LABEL[role], role);
+    var ppl=PEOPLE.filter(function(p){ return p.role===role; });
+    if(ppl.length) ppl.forEach(function(p){ pick(p.name, p.name); });
+    else pick(ROLE_LABEL[role], roleToken(role));
+  });
   body.appendChild(el('div',{style:'border-top:1px solid var(--border);margin:8px 0 4px;'}));
   pick(t('Vue complete (tous)','Full view (all)'),'all');
   modal.appendChild(body); ov.appendChild(modal); document.body.appendChild(ov);
