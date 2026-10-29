@@ -734,8 +734,8 @@ html.epp-dark .alpha-bar button.active:hover:not(:disabled){background:var(--lim
 .mpick-x:hover{background:rgba(0,0,0,.22);opacity:1;}
 .mpick-chev{flex:0 0 auto;width:16px;height:16px;color:var(--muted);margin-left:auto;}
 .mpick-chev svg{width:16px;height:16px;}
-.mpick-panel{position:absolute;z-index:40;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);
-  border-radius:10px;box-shadow:0 10px 26px rgba(0,0,0,.18);padding:5px;max-height:240px;overflow:auto;}
+.mpick-panel{position:fixed;z-index:1200;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;box-shadow:0 10px 26px rgba(0,0,0,.18);padding:5px;max-height:260px;overflow:auto;}
 html.epp-dark .mpick-panel{box-shadow:0 10px 26px rgba(0,0,0,.5);}
 .mpick-opt{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text);}
 .mpick-opt:hover{background:rgba(48,87,84,.09);}
@@ -1638,6 +1638,37 @@ function nameMatch(a,b){ var ka=nameKey(a),kb=nameKey(b); return !!ka&&ka===kb; 
 /* Normalise une valeur en liste de noms (gere l'ancien format chaine). */
 function asList(v){ return Array.isArray(v)?v.filter(function(x){return x&&String(x).trim();}):((v&&String(v).trim())?[v]:[]); }
 function listMatch(arr,name){ return asList(arr).some(function(x){ return nameMatch(x,name); }); }
+/* --- Recalage des noms CSM / QM sur les noms officiels (corrige les fiches d'exemple
+   et les anciennes saisies : ordre inverse, prenom seul, combos "A / B", noms retires). --- */
+function nameWords(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(Boolean); }
+function wordsSubset(a,b){ return a.length>0 && a.every(function(w){ return b.indexOf(w)>=0; }); }
+function canonEntry(name){ return { name:name, words:nameWords(name) }; }
+var CSM_CANON=['Guillaume TAVERNIERS','Lauriane GOUISSEM','Cynthia LOBET','Marie VERDIER','Gerda MEVEL-DE BACKER'].map(canonEntry);
+var QM_CANON=['Sylvain HAMELIN','Nathan LAFEZ','Marion LE STANG'].map(canonEntry);
+var RETIRED_CANON=['Morgane BEGARD'].map(canonEntry); // personnes retirees -> supprimees
+function canonPerson(piece, kind){
+  var pw=nameWords(piece);
+  if(!pw.length) return '';
+  var hasSig=pw.some(function(w){ return w.length>=3; }); // evite un match sur "de", "le"...
+  if(!hasSig) return piece;
+  if(RETIRED_CANON.some(function(o){ return wordsSubset(pw,o.words); })) return null; // drop
+  var pools = kind==='qm' ? [QM_CANON,CSM_CANON] : [CSM_CANON,QM_CANON];
+  for(var p=0;p<pools.length;p++){
+    for(var i=0;i<pools[p].length;i++){ if(wordsSubset(pw, pools[p][i].words)) return pools[p][i].name; }
+  }
+  return piece; // inconnu : on garde tel quel
+}
+function canonTeam(raw, kind){
+  var out=[];
+  asList(raw).forEach(function(v){
+    String(v).split(/[\/,;]+/).forEach(function(p){
+      var r=canonPerson(p.trim(), kind);
+      if(r===null || r==='') return;
+      if(out.indexOf(r)<0) out.push(r);
+    });
+  });
+  return out;
+}
 
 /* ---------- Stockage ---------- */
 var KEY='eppGC_v1';
@@ -2002,7 +2033,22 @@ function multiPick(sel, list, onChange, ph){
   var wrap=el('div',{class:'mpick'});
   var btn=el('button',{type:'button',class:'mpick-btn field'});
   var panel=el('div',{class:'mpick-panel',style:'display:none;'});
-  function closeOut(ev){ if(!wrap.contains(ev.target)){ panel.style.display='none'; document.removeEventListener('mousedown',closeOut); } }
+  // Positionne le panneau en coordonnees viewport (position:fixed) pour passer AU-DESSUS des cartes
+  // (echappe a tout overflow:hidden des conteneurs parents).
+  function place(){
+    var r=btn.getBoundingClientRect();
+    var vh=window.innerHeight||document.documentElement.clientHeight;
+    var below=vh-r.bottom, above=r.top;
+    var maxH=Math.min(260, Math.max(below,above)-10);
+    panel.style.width=r.width+'px';
+    panel.style.left=r.left+'px';
+    panel.style.maxHeight=maxH+'px';
+    if(below>=Math.min(260,above) || below>200){ panel.style.top=(r.bottom+4)+'px'; panel.style.bottom='auto'; }
+    else { panel.style.top='auto'; panel.style.bottom=(vh-r.top+4)+'px'; }
+  }
+  function onWin(){ if(panel.style.display!=='none') place(); }
+  function closeOut(ev){ if(!wrap.contains(ev.target)){ closePanel(); } }
+  function closePanel(){ panel.style.display='none'; document.removeEventListener('mousedown',closeOut); window.removeEventListener('scroll',onWin,true); window.removeEventListener('resize',onWin); }
   function drawBtn(){
     btn.innerHTML='';
     if(sel.length){
@@ -2035,12 +2081,14 @@ function multiPick(sel, list, onChange, ph){
       row.appendChild(cb); row.appendChild(el('span',{text:name}));
       panel.appendChild(row);
     });
+    if(panel.style.display!=='none') place();
   }
   btn.addEventListener('mousedown',function(ev){
     ev.preventDefault();
     var open=panel.style.display!=='none';
-    if(open){ panel.style.display='none'; document.removeEventListener('mousedown',closeOut); }
-    else { panel.style.display='block'; drawPanel(); setTimeout(function(){ document.addEventListener('mousedown',closeOut); },0); }
+    if(open){ closePanel(); }
+    else { panel.style.display='block'; drawPanel(); place();
+      setTimeout(function(){ document.addEventListener('mousedown',closeOut); window.addEventListener('scroll',onWin,true); window.addEventListener('resize',onWin); },0); }
   });
   drawBtn();
   wrap.appendChild(btn); wrap.appendChild(panel);
@@ -2906,7 +2954,7 @@ function normalizeAccount(a){
   if(!Array.isArray(a.group.zones)||!a.group.zones.length) a.group.zones=[''];
   a.contacts=Array.isArray(a.contacts)&&a.contacts.length?a.contacts.map(function(c){ var cc=Object.assign(blankContact(),c); cc.scope=asList(cc.scope); return cc; }):[blankContact()];
   a.internal=Object.assign({},b.internal,a.internal||{}); if(!Array.isArray(a.internal.others)) a.internal.others=[];
-  a.internal.csm=asList(a.internal.csm); a.internal.qm=asList(a.internal.qm);
+  a.internal.csm=canonTeam(a.internal.csm,'csm'); a.internal.qm=canonTeam(a.internal.qm,'qm');
   a.commercial=Object.assign({},b.commercial,a.commercial||{});
   if(!Array.isArray(a.commercial.prices)) a.commercial.prices=[];
   if(!Array.isArray(a.commercial.consumables)) a.commercial.consumables=[];
@@ -3026,6 +3074,12 @@ function maybeSeed(){
 window.EPP_ON_LANG=function(){ renderAll(); };
 function boot(){
   load();
+  // Recale les fiches deja stockees (noms CSM/QM, defauts) puis persiste si besoin.
+  if(DB.accounts && DB.accounts.length){
+    var before=JSON.stringify(DB.accounts);
+    DB.accounts=DB.accounts.map(function(a){ return normalizeAccount(a); });
+    try{ if(JSON.stringify(DB.accounts)!==before) save(); }catch(e){ save(); }
+  }
   maybeSeed();
   var first=false; try{ first=localStorage.getItem('eppGCUser')===null; }catch(e){ first=true; }
   var br=document.querySelector('.brand'); if(br) br.addEventListener('click',function(e){ e.preventDefault(); goHome(); });
