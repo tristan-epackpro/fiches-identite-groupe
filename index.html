@@ -667,14 +667,15 @@ html.epp-dark .reveal{border-left-color:var(--lime);}
 .gc-card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s;cursor:pointer;}
 .gc-card:hover{border-color:var(--border-strong);}
 /* Bouton Supprimer : coin haut-droit, visible au survol de la carte */
-.gc-del{position:absolute;top:10px;right:10px;z-index:3;display:inline-flex;align-items:center;gap:6px;
-  background:var(--red);color:#fff;border:none;border-radius:8px;padding:5px 9px;font-size:11.5px;font-weight:800;cursor:pointer;
-  opacity:0;pointer-events:none;transition:opacity .12s,background .12s;box-shadow:0 1px 5px rgba(0,0,0,.3);}
+.gc-del{position:absolute;top:9px;right:9px;z-index:5;display:inline-grid;place-items:center;width:30px;height:30px;padding:0;
+  background:var(--red);color:#fff;border:none;border-radius:8px;cursor:pointer;
+  opacity:0;pointer-events:none;transition:opacity .12s,background .12s,right .12s;box-shadow:0 1px 5px rgba(0,0,0,.3);}
+.gc-card.has-own .gc-del{right:42px;}
 .gc-card:hover .gc-del,.gc-card:focus-within .gc-del{opacity:1;pointer-events:auto;}
 .gc-del:hover{background:#a81717;}
-.gc-del svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-/* Badge "proprietaire" (QM/CSM identifie) : cercle de couleur + silhouette blanche, centre sur le coin haut-droit */
-.gc-own{position:absolute;top:0;right:0;transform:translate(50%,-50%);z-index:4;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;box-shadow:0 1px 5px rgba(0,0,0,.35);border:2px solid var(--surface);}
+.gc-del svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* Badge "proprietaire" (QM/CSM identifie) : cercle de couleur + silhouette blanche, centre ~coin haut-droit (decale 2px gauche/bas) */
+.gc-own{position:absolute;top:0;right:0;transform:translate(calc(50% - 2px),calc(-50% + 2px));z-index:4;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;box-shadow:0 1px 5px rgba(0,0,0,.35);border:2px solid var(--surface);}
 .gc-own svg{width:15px;height:15px;fill:#fff;}
 /* Personnes en charge (CSM puis QM) empilees sous les tags */
 .gc-people{display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
@@ -1816,14 +1817,15 @@ function gcCard(a){
   var g=a.group;
   var card=el('div',{class:'gc-card',onclick:function(e){ if(e.target.closest('.gc-actions')||e.target.closest('.gc-del')) return; openAccount(a,false); }});
   // Supprimer : coin haut-droit, visible au survol
-  var bDel=el('button',{class:'gc-del',title:t('Supprimer','Delete'),onclick:function(){ askDelete(a); }});
-  bDel.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span>'+esc(t('Supprimer','Delete'))+'</span>';
+  var bDel=el('button',{class:'gc-del',title:t('Supprimer','Delete'),'aria-label':t('Supprimer','Delete'),onclick:function(){ askDelete(a); }});
+  bDel.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
   card.appendChild(bDel);
   // Badge "propriete" : si la personne identifiee (QM/CSM) est responsable de ce groupe
   if(USER.name){
     var ownRole = (USER.role==='qm' && nameMatch(a.internal.qm, USER.name)) ? 'qm'
                 : (USER.role==='csm' && nameMatch(a.internal.csm, USER.name)) ? 'csm' : '';
     if(ownRole){
+      card.classList.add('has-own');
       var col = ownRole==='qm' ? '#2563eb' : '#1f9d55';
       var ob=el('span',{class:'gc-own',title:t('Tu es le ','You are the ')+ROLE_LABEL[ownRole]+t(' de ce groupe',' of this group'),style:'background:'+col+';'});
       ob.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4.4 0-8 2.7-8 6v1h16v-1c0-3.3-3.6-6-8-6z"/></svg>';
