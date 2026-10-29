@@ -601,9 +601,15 @@ html.epp-dark .epp-radio:checked::after{background:var(--lime);}
   background:var(--lime);color:var(--lime-ink);padding:2px 6px;border-radius:999px;flex:0 0 auto;}
 .app.sb .wiz-step .wiz-mine{display:none;}
 .mine-chip{display:inline-flex;align-items:center;font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;white-space:nowrap;flex:0 0 auto;}
-.mine-chip.yes{background:rgba(34,197,94,.16);color:#1b7f45;border:1px solid rgba(34,197,94,.32);}
-html.epp-dark .mine-chip.yes{color:#86efac;}
+.mine-chip.yes{color:var(--rc,#1b7f45);border:1px solid var(--rc,#1b7f45);background:color-mix(in srgb,var(--rc,#1b7f45) 14%,transparent);}
 .mine-chip.no{background:var(--surface-2);color:var(--muted);border:1px solid var(--border);}
+
+/* ---- Couleurs par role / service interne ---- */
+.rc-sales{--rc:#1f9d55;} .rc-csm{--rc:#e02020;} .rc-qm{--rc:#2563eb;} .rc-support{--rc:#7c3aed;} .rc-cp{--rc:#f96c1e;}
+html.epp-dark .rc-sales{--rc:#6ee7a8;} html.epp-dark .rc-csm{--rc:#f87171;} html.epp-dark .rc-qm{--rc:#7ab0ff;} html.epp-dark .rc-support{--rc:#c4b5fd;} html.epp-dark .rc-cp{--rc:#fdba74;}
+.role-pill{color:var(--rc)!important;}
+.chip.role-pill{border-color:var(--rc)!important;background:color-mix(in srgb,var(--rc) 12%,transparent);}
+.fld-lbl.role-pill{font-weight:800;}
 
 /* ---- Formulaire ---- */
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px 16px;}
@@ -658,9 +664,18 @@ html.epp-dark .reveal{border-left-color:var(--lime);}
 
 /* ---- Cartes de la liste d'accueil ---- */
 .gc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;}
-.gc-card{border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;transition:.15s;cursor:pointer;}
-.gc-card:hover{border-color:var(--border-strong);transform:translateY(-2px);box-shadow:var(--shadow-lg);}
-.gc-card .gc-top{display:flex;align-items:flex-start;gap:10px;}
+.gc-card{position:relative;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px;transition:border-color .15s;cursor:pointer;}
+.gc-card:hover{border-color:var(--border-strong);}
+/* Bouton Supprimer : coin haut-droit, visible au survol de la carte */
+.gc-del{position:absolute;top:10px;right:10px;z-index:3;display:inline-flex;align-items:center;gap:6px;
+  background:var(--red);color:#fff;border:none;border-radius:8px;padding:5px 9px;font-size:11.5px;font-weight:800;cursor:pointer;
+  opacity:0;pointer-events:none;transition:opacity .12s,background .12s;box-shadow:0 1px 5px rgba(0,0,0,.3);}
+.gc-card:hover .gc-del,.gc-card:focus-within .gc-del{opacity:1;pointer-events:auto;}
+.gc-del:hover{background:#a81717;}
+.gc-del svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+/* Personnes en charge (CSM puis QM) empilees sous les tags */
+.gc-people{display:flex;flex-direction:column;align-items:flex-start;gap:6px;}
+.gc-card .gc-top{display:flex;align-items:flex-start;gap:10px;padding-right:20px;}
 .gc-card .gc-name{font-size:16px;font-weight:800;color:var(--title);line-height:1.2;}
 .gc-card .gc-meta{font-size:11.5px;color:var(--muted);margin-top:3px;}
 .gc-card .gc-tags{display:flex;flex-wrap:wrap;gap:6px;}
@@ -1609,13 +1624,16 @@ var QM_LIST=['Sylvain HAMELIN','Nathan LAFEZ','Marion LE STANG'];
 var CSM_QM={ 'Guillaume TAVERNIERS':'Sylvain HAMELIN','Lauriane GOUISSEM':'Nathan LAFEZ','Cynthia LOBET':'Marion LE STANG' };
 
 /* ---------- Matrice de responsabilite (qui renseigne quoi) ---------- */
-var ROLE_LABEL={ sales:'Sales', csm:'CSM', qm:'QM', cp:'CP (Customer Planner)', support:'Customer Support' };
+var ROLE_LABEL={ sales:'KAM', csm:'CSM', qm:'QM', cp:'CP (Customer Planner)', support:'Customer Support' };
+var ROLE_SHORT={ sales:'KAM', csm:'CSM', qm:'QM', cp:'CP', support:'CS' };
+function rcClass(role){ return 'rc-'+role; }
 var STEP_OWNERS={ 0:['sales','csm'], 1:['csm','sales'], 2:['csm'], 3:['sales'], 4:['csm'], 5:['qm','csm'] };
 function ownerTag(roles){
   if(!roles||!roles.length) return null;
   var span=el('span',{class:'role-tag',title:t('Responsable de cette partie','Owner of this section')});
+  var names=roles.map(function(r){ return '<b class="'+rcClass(r)+'" style="color:var(--rc);font-weight:800;">'+esc(ROLE_LABEL[r]||r)+'</b>'; }).join(' &middot; ');
   span.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>'+
-    '<span>'+t('Resp.','Owner')+'&nbsp;: '+roles.map(function(r){ return esc(ROLE_LABEL[r]||r); }).join(' &middot; ')+'</span>';
+    '<span>'+t('Resp.','Owner')+'&nbsp;: '+names+'</span>';
   return span;
 }
 
@@ -1789,7 +1807,11 @@ function renderHome(c){
 
 function gcCard(a){
   var g=a.group;
-  var card=el('div',{class:'gc-card',onclick:function(e){ if(e.target.closest('.gc-actions')) return; openAccount(a,false); }});
+  var card=el('div',{class:'gc-card',onclick:function(e){ if(e.target.closest('.gc-actions')||e.target.closest('.gc-del')) return; openAccount(a,false); }});
+  // Supprimer : coin haut-droit, visible au survol
+  var bDel=el('button',{class:'gc-del',title:t('Supprimer','Delete'),onclick:function(){ askDelete(a); }});
+  bDel.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><span>'+esc(t('Supprimer','Delete'))+'</span>';
+  card.appendChild(bDel);
   var top=el('div',{class:'gc-top'});
   var info=el('div',{style:'flex:1 1 auto;min-width:0;'});
   info.appendChild(el('div',{class:'gc-name',text:g.name||t('(Sans nom)','(Untitled)')}));
@@ -1805,9 +1827,13 @@ function gcCard(a){
   var tags=el('div',{class:'gc-tags'});
   if(g.multiBrand) tags.appendChild(el('span',{class:'chip',text:t('Plusieurs marques','Several brands')}));
   if(g.multiZone) tags.appendChild(el('span',{class:'chip',text:t('Multi-zones / pays','Multi-zone / country')}));
-  if(a.internal.qm) tags.appendChild(el('span',{class:'chip',text:'QM: '+a.internal.qm}));
-  if(a.internal.csm) tags.appendChild(el('span',{class:'chip',text:'CSM: '+a.internal.csm}));
   if(tags.children.length) card.appendChild(tags);
+
+  // Personnes en charge : CSM puis QM, empiles sous les autres tags
+  var ppl=el('div',{class:'gc-people'});
+  if(a.internal.csm) ppl.appendChild(el('span',{class:'chip role-pill rc-csm',text:'CSM: '+a.internal.csm}));
+  if(a.internal.qm) ppl.appendChild(el('span',{class:'chip role-pill rc-qm',text:'QM: '+a.internal.qm}));
+  if(ppl.children.length) card.appendChild(ppl);
 
   var n=progress(a);
   var prog=el('div',{class:'gc-prog'});
@@ -1815,11 +1841,11 @@ function gcCard(a){
   card.appendChild(prog);
 
   var act=el('div',{class:'gc-actions'});
-  var bEdit=el('button',{class:'btn btn-ghost',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,false); },text:t('Modifier','Edit')});
-  var bView=el('button',{class:'btn btn-ghost',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,true); },text:t('Voir la fiche','View sheet')});
-  var bDel=el('button',{class:'iconbtn-sm danger',title:t('Supprimer','Delete'),onclick:function(){ askDelete(a); }});
-  bDel.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
-  act.appendChild(bEdit); act.appendChild(bView); act.appendChild(bDel);
+  var bView=el('button',{class:'btn btn-ghost',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,true); }});
+  bView.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M1.5 12S5 5.5 12 5.5 22.5 12 22.5 12 19 18.5 12 18.5 1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>'+t('Voir la fiche','View sheet');
+  var bEdit=el('button',{class:'btn btn-ghost',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,false); }});
+  bEdit.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg>'+t('Modifier','Edit');
+  act.appendChild(bView); act.appendChild(bEdit);
   card.appendChild(act);
   return card;
 }
@@ -1832,7 +1858,7 @@ function touch(){ CUR.updatedAt=Date.now(); save(); }
 function field(labelFr, labelEn, control, opts){
   opts=opts||{};
   var f=el('div',{class:'fld'+(opts.col2?' col2':'')});
-  var lab=el('label',{class:'fld-lbl'});
+  var lab=el('label',{class:'fld-lbl'+(opts.role?(' role-pill '+rcClass(opts.role)):'')});
   lab.innerHTML=esc(t(labelFr,labelEn))+(opts.req?'<span class="req">*</span>':'');
   f.appendChild(lab);
   if(opts.hint) f.appendChild(el('div',{class:'fld-hint',text:t(opts.hint[0],opts.hint[1])}));
@@ -1922,8 +1948,8 @@ function renderEditor(c){
   var firstRight=true;
   if(ROLE!=='all'){
     var mine=ownsStep(STEP);
-    var rc=el('span',{class:'mine-chip '+(mine?'yes':'no'),
-      text: mine ? (t('A toi','Yours')+' ('+ROLE.toUpperCase()+')') : t('Consultation','Read-only')});
+    var rc=el('span',{class:'mine-chip '+(mine?('yes '+rcClass(ROLE)):'no'),
+      text: mine ? (t('A toi','Yours')+' ('+(ROLE_SHORT[ROLE]||ROLE)+')') : t('Consultation','Read-only')});
     rc.style.marginLeft='auto'; firstRight=false; ph.appendChild(rc);
   }
   var ot=ownerTag(STEP_OWNERS[STEP]); if(ot){ if(firstRight){ ot.style.marginLeft='auto'; firstRight=false; } ph.appendChild(ot); }
@@ -2064,14 +2090,14 @@ function stepTeam(box){
     if(q){ n.qm=q; touch(); renderEditor($content()); }
   });
   grid.appendChild(field('CSM (Customer Success Manager)','CSM (Customer Success Manager)', csmWrap,
-    {hint:['Marie VERDIER : Club Med et quelques groupes etranger. Gerda MEVEL-DE BACKER : BENELUX / distributeurs (Suisse, DROM-TOM).',
+    {role:'csm', hint:['Marie VERDIER : Club Med et quelques groupes etranger. Gerda MEVEL-DE BACKER : BENELUX / distributeurs (Suisse, DROM-TOM).',
            'Marie VERDIER: Club Med and a few foreign groups. Gerda MEVEL-DE BACKER: BENELUX / distributors (Switzerland, DROM-TOM).']}));
   grid.appendChild(field('QM (Quality Manager)','QM (Quality Manager)',
     inputList(n.qm, QM_LIST, function(v){ n.qm=v; touch(); },'Sylvain HAMELIN, Nathan LAFEZ...'),
-    {hint:['QM attitre pre-rempli selon le CSM (modifiable). D\'autres QM peuvent etre designes dans "Autres interlocuteurs".',
+    {role:'qm', hint:['QM attitre pre-rempli selon le CSM (modifiable). D\'autres QM peuvent etre designes dans "Autres interlocuteurs".',
            'Assigned QM pre-filled from the CSM (editable). Other QMs can be added in "Other contacts".']}));
-  grid.appendChild(field('CP (Customer Planner)','CP (Customer Planner)', inputText(n.cp,function(v){ n.cp=v; touch(); })));
-  grid.appendChild(field('Sales (Commercial)','Sales', inputText(n.sales,function(v){ n.sales=v; touch(); })));
+  grid.appendChild(field('CP (Customer Planner)','CP (Customer Planner)', inputText(n.cp,function(v){ n.cp=v; touch(); }), {role:'cp'}));
+  grid.appendChild(field('KAM (Key Account Manager)','KAM (Key Account Manager)', inputText(n.sales,function(v){ n.sales=v; touch(); }), {role:'sales'}));
   box.appendChild(grid);
 
   box.appendChild(el('div',{class:'sub-h',text:t('Autres interlocuteurs internes','Other internal contacts')}));
@@ -2455,7 +2481,7 @@ function renderFiche(c){
 
   // 3. Notre equipe
   var n=a.internal;
-  var tPairs=[[ 'QM', n.qm],['CSM', n.csm],['CP (Customer Planner)', n.cp],['Sales', n.sales]];
+  var tPairs=[[ 'QM', n.qm],['CSM', n.csm],['CP (Customer Planner)', n.cp],['KAM', n.sales]];
   n.others.filter(function(o){ return o.role||o.name; }).forEach(function(o){ tPairs.push([o.role||t('Autre','Other'), o.name]); });
   fiche.appendChild(sec('Notre equipe','Our team', dl(tPairs), STEP_OWNERS[2]));
 
@@ -2569,30 +2595,62 @@ function exportAccount(a){
   document.body.appendChild(link); link.click(); document.body.removeChild(link);
   setTimeout(function(){ URL.revokeObjectURL(url); },1000);
 }
+/* Lit un .zip en navigateur (sans librairie) et renvoie le texte des entrees *.json. */
+function extractZipJsons(buf){
+  if(typeof DecompressionStream==='undefined') return Promise.reject(new Error('nozlib'));
+  var dv=new DataView(buf), u8=new Uint8Array(buf);
+  var eocd=-1, min=Math.max(0, u8.length-22-65536);
+  for(var i=u8.length-22;i>=min;i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) return Promise.reject(new Error('noeocd'));
+  var cdCount=dv.getUint16(eocd+10,true), p=dv.getUint32(eocd+16,true), entries=[];
+  for(var n=0;n<cdCount;n++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    var method=dv.getUint16(p+10,true), compSize=dv.getUint32(p+20,true),
+        nameLen=dv.getUint16(p+28,true), extraLen=dv.getUint16(p+30,true), commentLen=dv.getUint16(p+32,true),
+        lh=dv.getUint32(p+42,true);
+    var name=new TextDecoder().decode(u8.subarray(p+46,p+46+nameLen));
+    p+=46+nameLen+extraLen+commentLen;
+    if(!/\.json$/i.test(name) || /\/$/.test(name)) continue;
+    var lhNameLen=dv.getUint16(lh+26,true), lhExtraLen=dv.getUint16(lh+28,true);
+    var ds=lh+30+lhNameLen+lhExtraLen;
+    entries.push({method:method, data:u8.subarray(ds, ds+compSize)});
+  }
+  return Promise.all(entries.map(function(e){
+    if(e.method===0) return Promise.resolve(new TextDecoder().decode(e.data));
+    if(e.method===8) return new Response(new Blob([e.data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer().then(function(ab){ return new TextDecoder().decode(new Uint8Array(ab)); });
+    return Promise.resolve('');
+  })).then(function(arr){ return arr.filter(Boolean); });
+}
 function importFile(){
-  var inp=el('input',{type:'file',accept:'.json,application/json',multiple:'multiple',style:'display:none;'});
+  var inp=el('input',{type:'file',accept:'.json,.zip,application/json,application/zip',multiple:'multiple',style:'display:none;'});
   inp.addEventListener('change',function(){
     var files=inp.files?[].slice.call(inp.files):[]; if(!files.length) return;
-    var added=[], errs=0, pending=files.length;
-    function done(){
+    var texts=[], errs=0, pending=files.length;
+    function tick(){ if(--pending===0) finish(); }
+    function finish(){
+      var added=[];
+      texts.forEach(function(txt){
+        try{ var o=JSON.parse(txt); var acc=o&&o.account?o.account:(o&&o.group?o:null);
+          if(acc&&acc.group){ acc=normalizeAccount(acc); acc.id=uid(); if(!acc.updatedAt) acc.updatedAt=Date.now(); DB.accounts.push(acc); added.push(acc); } else errs++;
+        }catch(e){ errs++; }
+      });
       save();
-      if(errs) eppFlash(errs+' '+t('fichier(s) non reconnu(s) ou illisible(s).','file(s) not recognized or unreadable.'),{type:'err',timeout:3200});
+      if(errs) eppFlash(errs+' '+t('element(s) non reconnu(s) ou illisible(s).','item(s) not recognized or unreadable.'),{type:'err',timeout:3200});
       if(added.length===1){ eppFlash(t('Fiche importee.','Sheet imported.'),{type:'ok',timeout:2000}); openAccount(added[0],true); }
       else if(added.length>1){ eppFlash(added.length+' '+t('fiches importees.','sheets imported.'),{type:'ok',timeout:2600}); goHome(); }
       else if(!errs){ goHome(); }
     }
     files.forEach(function(f){
-      var r=new FileReader();
-      r.onload=function(){
-        try{
-          var o=JSON.parse(r.result);
-          var acc = o&&o.account ? o.account : (o&&o.group ? o : null);
-          if(acc&&acc.group){ acc=normalizeAccount(acc); acc.id=uid(); if(!acc.updatedAt) acc.updatedAt=Date.now(); DB.accounts.push(acc); added.push(acc); }
-          else errs++;
-        }catch(e){ errs++; }
-        if(--pending===0) done();
-      };
-      r.readAsText(f);
+      if(/\.zip$/i.test(f.name) || (f.type||'').indexOf('zip')>=0){
+        f.arrayBuffer().then(extractZipJsons).then(function(list){
+          if(!list.length) errs++; list.forEach(function(x){ texts.push(x); });
+        }).catch(function(){ errs++; eppFlash(t('Impossible de lire le .zip (dezippe et importe les .json).','Could not read the .zip (unzip and import the .json).'),{type:'err',timeout:3800}); }).then(tick);
+      } else {
+        var r=new FileReader();
+        r.onload=function(){ texts.push(r.result); tick(); };
+        r.onerror=function(){ errs++; tick(); };
+        r.readAsText(f);
+      }
     });
   });
   document.body.appendChild(inp); inp.click(); setTimeout(function(){ inp.remove(); },0);
@@ -2671,7 +2729,7 @@ function buildIdentityPicker(){
   sel.appendChild(opt('all', t('Vue complete (tous)','Full view (all)')));
   var gq=el('optgroup',{label:'QM'}); PEOPLE.filter(function(p){return p.role==='qm';}).forEach(function(p){ gq.appendChild(opt(p.name,p.name)); }); sel.appendChild(gq);
   var gc=el('optgroup',{label:'CSM'}); PEOPLE.filter(function(p){return p.role==='csm';}).forEach(function(p){ gc.appendChild(opt(p.name,p.name)); }); sel.appendChild(gc);
-  var go=el('optgroup',{label:t('Autres','Other')}); go.appendChild(opt('_sales','Sales')); go.appendChild(opt('_cp','CP (Customer Planner)')); go.appendChild(opt('_support','Customer Support')); sel.appendChild(go);
+  var go=el('optgroup',{label:t('Autres','Other')}); go.appendChild(opt('_sales','KAM')); go.appendChild(opt('_cp','CP (Customer Planner)')); go.appendChild(opt('_support','Customer Support')); sel.appendChild(go);
   sel.addEventListener('change',function(){ setUserFromToken(sel.value); });
   wrap.appendChild(sel);
   cluster.insertBefore(wrap, cluster.firstChild);
@@ -2687,11 +2745,11 @@ function askIdentity(){
   modal.appendChild(head);
   var body=el('div',{class:'em-body',style:'max-height:72vh;overflow:auto;'});
   body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 4px;',text:t('Selectionne-toi dans la liste : la vue s\'adapte a ton role (modifiable en haut a droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
-  function grp(txt){ body.appendChild(el('div',{class:'em-lbl',text:txt})); }
+  function grp(txt, role){ body.appendChild(el('div',{class:'em-lbl'+(role?(' role-pill '+rcClass(role)):''),text:txt})); }
   function pick(label, token){ var b=el('button',{class:'btn btn-ghost',style:'width:100%;justify-content:flex-start;margin:3px 0;',text:label,onclick:function(){ ov.remove(); setUserFromToken(token); }}); body.appendChild(b); }
-  grp('QM'); PEOPLE.filter(function(p){return p.role==='qm';}).forEach(function(p){ pick(p.name, p.name); });
-  grp('CSM'); PEOPLE.filter(function(p){return p.role==='csm';}).forEach(function(p){ pick(p.name, p.name); });
-  grp(t('Autres','Other')); pick('Sales','_sales'); pick('CP (Customer Planner)','_cp'); pick('Customer Support','_support');
+  grp('QM','qm'); PEOPLE.filter(function(p){return p.role==='qm';}).forEach(function(p){ pick(p.name, p.name); });
+  grp('CSM','csm'); PEOPLE.filter(function(p){return p.role==='csm';}).forEach(function(p){ pick(p.name, p.name); });
+  grp(t('Autres','Other')); pick('KAM','_sales'); pick('CP (Customer Planner)','_cp'); pick('Customer Support','_support');
   body.appendChild(el('div',{style:'border-top:1px solid var(--border);margin:8px 0 4px;'}));
   pick(t('Vue complete (tous)','Full view (all)'),'all');
   modal.appendChild(body); ov.appendChild(modal); document.body.appendChild(ov);
