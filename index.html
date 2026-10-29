@@ -782,6 +782,31 @@ details.mod-details > summary .chev{margin-left:auto;width:16px;height:16px;colo
 details.mod-details[open] > summary .chev{transform:rotate(180deg);}
 .mod-det-body{padding:0 14px 14px!important;}
 
+/* ---- Conventions de couleur des boutons ---- */
+/* Boutons rectangulaires generiques : survol deepgreen (hors destructifs / Voir / Enregistrer-Modifier) */
+.btn-ghost:hover{background:var(--brand);color:#fff;border-color:var(--brand);}
+/* Enregistrer / Modifier / Valider : fond vert pale, survol deepgreen */
+.btn-save{background:#dcefc8;color:#1b3a12;border:1px solid transparent;}
+.btn-save:hover{background:var(--brand);color:#fff;}
+html.epp-dark .btn-save{background:rgba(155,249,68,.16);color:#bfe9a0;}
+html.epp-dark .btn-save:hover{background:var(--brand);color:#fff;}
+/* Voir la fiche : fond bleu, plus fonce au survol */
+.btn-view{background:#273a80;color:#fff;border:1px solid transparent;}
+.btn-view:hover{background:#1b2a5e;color:#fff;}
+
+/* ---- Carte groupe incomplete : bordure mise en avant ---- */
+.gc-card.incomplete{border-color:#f0a500;}
+html.epp-dark .gc-card.incomplete{border-color:#f7b32b;}
+.gc-card.incomplete:hover{border-color:#d98f00;}
+html.epp-dark .gc-card.incomplete:hover{border-color:#ffc84d;}
+
+/* ---- Modale "Qui es-tu" en 2 colonnes ---- */
+.id-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;align-items:start;}
+.id-grid .id-grp{grid-column:1 / -1;margin:8px 0 0;}
+.id-grid .id-grp:first-child{margin-top:0;}
+.id-grid .id-opt{width:100%;justify-content:flex-start;margin:0;}
+@media(max-width:520px){ .id-grid{grid-template-columns:1fr;} }
+
 /* ---- Confirmation (reutilise .epp-modal) ---- */
 .confirm-body{font-size:13.5px;color:var(--text);line-height:1.5;}
 .confirm-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;}
@@ -1857,14 +1882,15 @@ function gcCard(a){
   if(ppl.children.length) card.appendChild(ppl);
 
   var n=progress(a);
+  if(n<6) card.classList.add('incomplete');
   var prog=el('div',{class:'gc-prog'});
   prog.innerHTML='<div class="gc-bar"><i style="width:'+Math.round(n/6*100)+'%"></i></div><span class="gc-prog-lbl">'+n+'/6</span>';
   card.appendChild(prog);
 
   var act=el('div',{class:'gc-actions'});
-  var bView=el('button',{class:'btn btn-ghost',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,true); }});
+  var bView=el('button',{class:'btn btn-view',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,true); }});
   bView.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M1.5 12S5 5.5 12 5.5 22.5 12 22.5 12 19 18.5 12 18.5 1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></svg>'+t('Voir la fiche','View sheet');
-  var bEdit=el('button',{class:'btn btn-ghost',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,false); }});
+  var bEdit=el('button',{class:'btn btn-save',style:'flex:1;justify-content:center;',onclick:function(){ openAccount(a,false); }});
   bEdit.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M14 6l4 4"/></svg>'+t('Modifier','Edit');
   act.appendChild(bView); act.appendChild(bEdit);
   card.appendChild(act);
@@ -1995,7 +2021,7 @@ function wizFoot(){
   foot.appendChild(el('span',{class:'wiz-progress',text:t('Etape','Step')+' '+(STEP+1)+' / 6'}));
   foot.appendChild(el('span',{class:'spacer'}));
 
-  var bSave=el('button',{class:'btn btn-ghost',onclick:function(){ touch(); eppFlash(t('Fiche enregistree','Sheet saved'),{type:'ok',timeout:1800}); }});
+  var bSave=el('button',{class:'btn btn-save',onclick:function(){ touch(); eppFlash(t('Fiche enregistree','Sheet saved'),{type:'ok',timeout:1800}); }});
   bSave.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/></svg>'+t('Enregistrer','Save');
   foot.appendChild(bSave);
 
@@ -2004,7 +2030,7 @@ function wizFoot(){
     next.innerHTML=t('Suivant','Next')+'<svg class="ico sm" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
     foot.appendChild(next);
   } else {
-    var fin=el('button',{class:'btn btn-brand',onclick:function(){ touch(); gotoStep(6); }});
+    var fin=el('button',{class:'btn btn-view',onclick:function(){ touch(); gotoStep(6); }});
     fin.innerHTML=t('Voir la fiche','View sheet')+'<svg class="ico sm" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
     foot.appendChild(fin);
   }
@@ -2448,7 +2474,7 @@ function renderFiche(c){
   // Barre d'actions (non imprimee)
   var bar=el('div',{class:'toolbar no-print'});
   var bBack=el('button',{class:'btn btn-ghost',onclick:goHome}); bBack.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>'+t('Liste','List');
-  var bEdit=el('button',{class:'btn btn-ghost',onclick:function(){ gotoStep(0); }}); bEdit.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg>'+t('Modifier','Edit');
+  var bEdit=el('button',{class:'btn btn-save',onclick:function(){ gotoStep(0); }}); bEdit.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg>'+t('Modifier','Edit');
   var bPrint=el('button',{class:'btn btn-ghost',onclick:function(){ window.print(); }}); bPrint.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 18H4v-6h16v6h-3M7 14h10v7H7z"/></svg>'+t('Imprimer / PDF','Print / PDF');
   var bExport=el('button',{class:'btn btn-brand',onclick:function(){ exportAccount(a); }}); bExport.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>'+t('Exporter (.json)','Export (.json)');
   bar.appendChild(bBack); bar.appendChild(bEdit); bar.appendChild(el('span',{class:'spacer'})); bar.appendChild(bPrint); bar.appendChild(bExport);
@@ -2773,17 +2799,20 @@ function askIdentity(){
   modal.appendChild(head);
   ov.addEventListener('click',function(e){ if(e.target===ov) ov.remove(); });
   var body=el('div',{class:'em-body',style:'max-height:72vh;overflow:auto;'});
-  body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 4px;',text:t('Selectionne-toi dans la liste : la vue s\'adapte a ton role (modifiable en haut a droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
-  function grp(txt, role){ body.appendChild(el('div',{class:'em-lbl'+(role?(' role-pill '+rcClass(role)):''),text:txt})); }
-  function pick(label, token){ var b=el('button',{class:'btn btn-ghost',style:'width:100%;justify-content:flex-start;margin:3px 0;',text:label,onclick:function(){ ov.remove(); setUserFromToken(token); }}); body.appendChild(b); }
+  body.appendChild(el('p',{class:'fld-hint',style:'margin:0 0 6px;',text:t('Selectionne-toi dans la liste : la vue s\'adapte a ton role (modifiable en haut a droite).','Pick yourself from the list: the view adapts to your role (changeable top-right).')}));
+  var glist=el('div',{class:'id-grid'});
+  function grp(txt, role){ glist.appendChild(el('div',{class:'id-grp em-lbl'+(role?(' role-pill '+rcClass(role)):''),text:txt})); }
+  function pick(label, token){ glist.appendChild(el('button',{class:'btn btn-ghost id-opt',text:label,onclick:function(){ ov.remove(); setUserFromToken(token); }})); }
   IDENTITY_ORDER.forEach(function(role){
     grp(ROLE_LABEL[role], role);
     var ppl=PEOPLE.filter(function(p){ return p.role===role; });
     if(ppl.length) ppl.forEach(function(p){ pick(p.name, p.name); });
     else pick(ROLE_LABEL[role], roleToken(role));
   });
+  body.appendChild(glist);
   body.appendChild(el('div',{style:'border-top:1px solid var(--border);margin:8px 0 4px;'}));
-  pick(t('Vue complete (tous)','Full view (all)'),'all');
+  var allBtn=el('button',{class:'btn btn-ghost',style:'width:100%;justify-content:flex-start;',text:t('Vue complete (tous)','Full view (all)'),onclick:function(){ ov.remove(); setUserFromToken('all'); }});
+  body.appendChild(allBtn);
   modal.appendChild(body); ov.appendChild(modal); document.body.appendChild(ov);
 }
 
