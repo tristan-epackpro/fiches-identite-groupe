@@ -1998,7 +1998,7 @@ function gcCard(a){
   if(ppl.children.length) card.appendChild(ppl);
 
   var n=progress(a);
-  if(n<6) card.classList.add('incomplete');
+  if(n<6 && !isLocked(a)) card.classList.add('incomplete'); // verrouillee = jugee complete -> pas de liseré orange
   var prog=el('div',{class:'gc-prog'});
   prog.innerHTML='<div class="gc-bar"><i style="width:'+Math.round(n/6*100)+'%"></i></div><span class="gc-prog-lbl">'+n+'/6</span>';
   card.appendChild(prog);
