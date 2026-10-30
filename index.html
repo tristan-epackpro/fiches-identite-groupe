@@ -3072,6 +3072,11 @@ function normalizeAccount(a){
   a.contacts=Array.isArray(a.contacts)&&a.contacts.length?a.contacts.map(function(c){ var cc=Object.assign(blankContact(),c); cc.scope=asList(cc.scope); return cc; }):[blankContact()];
   a.internal=Object.assign({},b.internal,a.internal||{}); if(!Array.isArray(a.internal.others)) a.internal.others=[];
   a.internal.csm=canonTeam(a.internal.csm,'csm'); a.internal.qm=canonTeam(a.internal.qm,'qm');
+  // CSM connu + QM non defini -> QM par defaut correspondant (CSM_QM)
+  if(a.internal.csm.length && !a.internal.qm.length){
+    var _qs=[]; a.internal.csm.forEach(function(c){ var q=CSM_QM[c]; if(q && _qs.indexOf(q)<0) _qs.push(q); });
+    if(_qs.length) a.internal.qm=_qs;
+  }
   a.commercial=Object.assign({},b.commercial,a.commercial||{});
   if(!Array.isArray(a.commercial.prices)) a.commercial.prices=[];
   if(!Array.isArray(a.commercial.consumables)) a.commercial.consumables=[];
