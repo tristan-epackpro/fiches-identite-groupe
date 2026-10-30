@@ -3085,17 +3085,45 @@ function seedAccounts(){
     var acc=normalizeAccount(JSON.parse(JSON.stringify(a))); acc.id=uid(); acc._seed=true; return acc;
   });
 }
+function acctNameKey(a){ return nameKey((a&&a.group&&a.group.name)||''); }
+function acctScore(a){
+  try{
+    var zc=(a.group&&a.group.multiZone&&Array.isArray(a.group.zones))?a.group.zones.filter(Boolean).length:0;
+    var cc=Array.isArray(a.contacts)?a.contacts.filter(function(c){return c.email||c.lastName;}).length:0;
+    return progress(a)*1000000 + zc*20000 + cc*2000 + JSON.stringify(a).length;
+  }catch(e){ return 0; }
+}
+/* Supprime les doublons de fiches (meme nom de groupe), en gardant la plus complete.
+   Corrige notamment un seed re-ajoute a cote d'une ancienne version du meme groupe. */
+function dedupeAccounts(){
+  var seen={}, out=[], changed=false;
+  (DB.accounts||[]).forEach(function(a){
+    var k=acctNameKey(a);
+    if(!k){ out.push(a); return; }
+    if(!(k in seen)){ seen[k]=out.length; out.push(a); return; }
+    changed=true; var i=seen[k];
+    if(acctScore(a) > acctScore(out[i])) out[i]=a; // garde la fiche la plus remplie
+  });
+  if(changed){ DB.accounts=out; save(); }
+}
 function maybeSeed(){
   var target=String(window.EPP_SEED_V||'1');
   var v=''; try{ v=localStorage.getItem('eppGCSeedV')||''; }catch(e){}
   var seededFlag=false; try{ seededFlag=localStorage.getItem('eppGCSeeded')==='1'; }catch(e){}
   if(v===target && seededFlag) return; // deja a jour
   try{ localStorage.setItem('eppGCSeedV', target); localStorage.setItem('eppGCSeeded','1'); }catch(e){}
-  // noms des anciennes demos a remplacer (+ marqueur _seed des seeds precedents)
+  var seeded=seedAccounts();
+  var seedKeys={}; seeded.forEach(function(a){ seedKeys[acctNameKey(a)]=1; });
   var oldKeys={}; (window.EPP_OLD_NAMES||[]).forEach(function(n){ oldKeys[nameKey(n)]=1; });
-  function isDemo(a){ return a && (a._seed || oldKeys[nameKey((a.group&&a.group.name)||'')]); }
-  var kept=(DB.accounts||[]).filter(function(a){ return !isDemo(a); }); // vraies fiches conservees
-  DB.accounts=seedAccounts().concat(kept);
+  // On garde UNIQUEMENT les fiches creees par l'utilisateur (nom hors seed, hors demo, non _seed).
+  var kept=(DB.accounts||[]).filter(function(a){
+    if(a._seed) return false;                       // ancien seed
+    var k=acctNameKey(a);
+    if(oldKeys[k]) return false;                    // ancienne demo
+    if(seedKeys[k]) return false;                   // meme nom qu'un groupe du seed -> evite le doublon
+    return true;
+  });
+  DB.accounts=seeded.concat(kept);
   save();
 }
 
@@ -3109,6 +3137,7 @@ function boot(){
     try{ if(JSON.stringify(DB.accounts)!==before) save(); }catch(e){ save(); }
   }
   maybeSeed();
+  dedupeAccounts(); // filet de securite : supprime d'eventuels doublons de meme nom
   var first=false; try{ first=localStorage.getItem('eppGCUser')===null; }catch(e){ first=true; }
   var br=document.querySelector('.brand'); if(br) br.addEventListener('click',function(e){ e.preventDefault(); goHome(); });
   buildIdentityPicker();
