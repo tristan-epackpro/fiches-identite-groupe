@@ -753,6 +753,22 @@ html.epp-dark .seg-btn:hover:not(.on){background:rgba(155,249,68,.1);}
 .zone-head{margin:16px 0 8px;font-weight:800;font-size:14px;color:var(--brand);padding-bottom:5px;border-bottom:2px solid var(--brand);}
 html.epp-dark .zone-head{color:var(--lime);border-bottom-color:rgba(155,249,68,.4);}
 
+/* ---- Verrouillage de fiche (CSM) ---- */
+.lock-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:10px 14px;border-radius:12px;
+  background:rgba(79,155,134,.14);border:1px solid #4f9b86;color:var(--text);}
+html.epp-dark .lock-banner{background:rgba(79,155,134,.18);}
+.lock-banner .lock-msg{display:flex;align-items:center;gap:9px;font-weight:700;font-size:13.5px;flex:1 1 auto;}
+.lock-banner .lock-msg svg{flex:0 0 auto;color:#4f9b86;}
+.lock-banner .lock-unlock{flex:0 0 auto;}
+.lock-banner .lock-hint{flex:0 0 auto;color:var(--muted);font-size:12.5px;font-style:italic;}
+.chip-lock{display:inline-flex;align-items:center;gap:5px;background:#4f9b86;color:#fff;font-weight:700;}
+.chip-lock svg{width:13px;height:13px;}
+.gc-card.locked{border-color:#4f9b86;}
+.gc-card.locked:hover{border-color:#3f8571;}
+.form-grid.is-locked{opacity:.96;}
+.form-grid.is-locked input:disabled,.form-grid.is-locked select:disabled,.form-grid.is-locked textarea:disabled{opacity:.72;cursor:not-allowed;}
+.form-grid.is-locked .btn:disabled,.form-grid.is-locked .iconbtn-sm:disabled{opacity:.5;cursor:not-allowed;}
+
 /* ---- Fiche recap (lecture seule + impression) ---- */
 .fiche{display:flex;flex-direction:column;gap:18px;}
 .fiche-title{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;}
@@ -1688,6 +1704,7 @@ function blankAccount(){
     commercial:{ frameContract:false, priceRef:'', prices:[], consumables:[], consumableNote:'', history:'' },
     deploy:{ sitesEquipped:'', sitesToEquip:'', cadence:'', planningUrl:'', planningFreq:'', planningRecipient:'', planningHide:'', refSiteProvided:false, refSite:'' },
     tech:{ paramTypeUrl:'', paramLangs:'', modules:[], moduleScope:'common', zoneModules:{}, recurrences:'', managerAccounts:[], updateAccount:'', listingUrl:'', vigilance:[], note:'' },
+    locked:false, lockedBy:'', lockedAt:0,
     history:[]
   };
 }
@@ -1963,7 +1980,13 @@ function gcCard(a){
   top.appendChild(info);
   card.appendChild(top);
 
+  if(isLocked(a)) card.classList.add('locked');
   var tags=el('div',{class:'gc-tags'});
+  if(isLocked(a)){
+    var lk=el('span',{class:'chip chip-lock'});
+    lk.innerHTML='<svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'+esc(t('Verrouillée','Locked'));
+    tags.appendChild(lk);
+  }
   if(g.multiBrand) tags.appendChild(el('span',{class:'chip',text:t('Plusieurs marques','Several brands')}));
   if(g.multiZone) tags.appendChild(el('span',{class:'chip',text:t('Multi-zones / pays','Multi-zone / country')}));
   if(tags.children.length) card.appendChild(tags);
@@ -2005,6 +2028,13 @@ function sectionData(a){ var o={}; HIST_SECTIONS.forEach(function(k){ o[k]=JSON.
 function snapshot(){ SNAP = CUR ? sectionData(CUR) : null; }
 function currentUserLabel(){ return USER.name || (USER.role&&USER.role!=='all'?ROLE_LABEL[USER.role]:'') || t('(non identifié)','(unidentified)'); }
 function pushHistory(action, sections){ if(!CUR) return; if(!Array.isArray(CUR.history)) CUR.history=[]; CUR.history.push({ts:Date.now(), user:currentUserLabel(), action:action, sections:sections||[]}); }
+/* ---- Verrouillage d'une fiche (pose par un CSM quand il la juge complete) ---- */
+function isLocked(a){ return !!(a && a.locked); }
+function canToggleLock(){ return USER.role==='csm'; }  // seuls les CSM verrouillent / deverrouillent
+function lockFiche(a){ if(!a) return; a.locked=true; a.lockedBy=currentUserLabel(); a.lockedAt=Date.now(); a._seed=false;
+  if(CUR===a){ pushHistory('lock'); } save(); }
+function unlockFiche(a){ if(!a) return; a.locked=false; a.lockedBy=''; a.lockedAt=0;
+  if(CUR===a){ pushHistory('unlock'); } save(); }
 function logSave(){
   if(!CUR){ return; }
   if(!SNAP){ snapshot(); return; }
@@ -2169,6 +2199,7 @@ function renderEditor(c){
   var s=STEPS[STEP];
   setHead(t(s.fr,s.en), (CUR.group.name||t('Nouvelle fiche','New sheet'))+'  -  '+t('Étape','Step')+' '+(STEP+1)+'/6');
 
+  var lb=lockBanner(CUR); if(lb) c.appendChild(lb);
   var panel=el('div',{class:'panel'});
   var ph=el('div',{class:'panel-h'});
   ph.innerHTML='<h3>'+esc(t(s.fr,s.en))+'</h3>';
@@ -2190,7 +2221,32 @@ function renderEditor(c){
 
   ({ 0:stepGroup, 1:stepContacts, 2:stepTeam, 3:stepComm, 4:stepDeploy, 5:stepTech }[STEP])(box);
 
+  if(isLocked(CUR)) lockDisable(box);
   c.appendChild(wizFoot());
+}
+/* Banniere "fiche verrouillee" (editeur + recap). */
+function lockBanner(a){
+  if(!isLocked(a)) return null;
+  var d=new Date(a.lockedAt||Date.now()).toLocaleDateString(EN()?'en-GB':'fr-FR');
+  var b=el('div',{class:'lock-banner'});
+  var msg=el('div',{class:'lock-msg'});
+  msg.innerHTML='<svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'
+    +'<span>'+esc(t('Fiche verrouillée par ','Sheet locked by ')+(a.lockedBy||'?')+t(' le ',' on ')+d+t(' - lecture seule.',' - read-only.'))+'</span>';
+  b.appendChild(msg);
+  if(canToggleLock()){
+    var u=el('button',{class:'btn btn-ghost lock-unlock',onclick:function(){ unlockFiche(a); renderAll(); eppFlash(t('Fiche déverrouillée','Sheet unlocked'),{type:'ok',timeout:1600}); }});
+    u.innerHTML='<svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 7-2.3"/></svg>'+t('Déverrouiller','Unlock');
+    b.appendChild(u);
+  } else {
+    b.appendChild(el('span',{class:'lock-hint',text:t('(seul un CSM peut déverrouiller)','(only a CSM can unlock)')}));
+  }
+  return b;
+}
+/* Rend un conteneur en lecture seule (fiche verrouillee). */
+function lockDisable(root){
+  root.classList.add('is-locked');
+  root.querySelectorAll('input,select,textarea,button').forEach(function(e){ e.disabled=true; });
+  root.querySelectorAll('.epp-switch,.mpick-btn,.yn-ctl,.id-pick,.spec-wrap').forEach(function(e){ e.style.pointerEvents='none'; });
 }
 
 function wizFoot(){
@@ -2201,16 +2257,25 @@ function wizFoot(){
   foot.appendChild(el('span',{class:'wiz-progress',text:t('Étape','Step')+' '+(STEP+1)+' / 6'}));
   foot.appendChild(el('span',{class:'spacer'}));
 
-  var bSave=el('button',{class:'btn btn-save',onclick:function(){ logSave(); eppFlash(t('Fiche enregistrée','Sheet saved'),{type:'ok',timeout:1800}); }});
-  bSave.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/></svg>'+t('Enregistrer','Save');
-  foot.appendChild(bSave);
+  var locked=isLocked(CUR);
+  if(!locked){
+    var bSave=el('button',{class:'btn btn-save',onclick:function(){ logSave(); eppFlash(t('Fiche enregistrée','Sheet saved'),{type:'ok',timeout:1800}); }});
+    bSave.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/></svg>'+t('Enregistrer','Save');
+    foot.appendChild(bSave);
+    if(canToggleLock()){
+      var bLock=el('button',{class:'btn btn-ghost',title:t('Verrouiller quand la fiche est complète','Lock when the sheet is complete'),
+        onclick:function(){ lockFiche(CUR); renderAll(); eppFlash(t('Fiche verrouillée','Sheet locked'),{type:'ok',timeout:1600}); }});
+      bLock.innerHTML='<svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'+t('Verrouiller','Lock');
+      foot.appendChild(bLock);
+    }
+  }
 
   if(STEP<LAST_FORM){
-    var next=el('button',{class:'btn btn-brand',onclick:function(){ touch(); gotoStep(STEP+1); }});
+    var next=el('button',{class:'btn btn-brand',onclick:function(){ if(!isLocked(CUR)) touch(); gotoStep(STEP+1); }});
     next.innerHTML=t('Suivant','Next')+'<svg class="ico sm" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
     foot.appendChild(next);
   } else {
-    var fin=el('button',{class:'btn btn-view',onclick:function(){ touch(); gotoStep(6); }});
+    var fin=el('button',{class:'btn btn-view',onclick:function(){ if(!isLocked(CUR)) touch(); gotoStep(6); }});
     fin.innerHTML=t('Voir la fiche','View sheet')+'<svg class="ico sm" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
     foot.appendChild(fin);
   }
@@ -2700,11 +2765,20 @@ function renderFiche(c){
   // Barre d'actions (non imprimee)
   var bar=el('div',{class:'toolbar no-print'});
   var bBack=el('button',{class:'btn btn-ghost',onclick:goHome}); bBack.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>'+t('Liste','List');
-  var bEdit=el('button',{class:'btn btn-save',onclick:function(){ gotoStep(0); }}); bEdit.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg>'+t('Modifier','Edit');
+  var editLbl = (isLocked(a)&&!canToggleLock()) ? t('Consulter','View details') : t('Modifier','Edit');
+  var bEdit=el('button',{class:'btn btn-save',onclick:function(){ gotoStep(0); }}); bEdit.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16v4zM14 6l4 4"/></svg>'+editLbl;
   var bPrint=el('button',{class:'btn btn-ghost',onclick:function(){ window.print(); }}); bPrint.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 18H4v-6h16v6h-3M7 14h10v7H7z"/></svg>'+t('Imprimer / PDF','Print / PDF');
   var bExport=el('button',{class:'btn btn-brand',onclick:function(){ exportAccount(a); }}); bExport.innerHTML='<svg class="ico sm" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>'+t('Exporter (.json)','Export (.json)');
-  bar.appendChild(bBack); bar.appendChild(bEdit); bar.appendChild(el('span',{class:'spacer'})); bar.appendChild(bPrint); bar.appendChild(bExport);
+  bar.appendChild(bBack); bar.appendChild(bEdit); bar.appendChild(el('span',{class:'spacer'}));
+  if(!isLocked(a) && canToggleLock()){
+    var bLock=el('button',{class:'btn btn-ghost',title:t('Verrouiller quand la fiche est complète','Lock when the sheet is complete'),
+      onclick:function(){ lockFiche(a); renderAll(); eppFlash(t('Fiche verrouillée','Sheet locked'),{type:'ok',timeout:1600}); }});
+    bLock.innerHTML='<svg class="ico sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'+t('Verrouiller','Lock');
+    bar.appendChild(bLock);
+  }
+  bar.appendChild(bPrint); bar.appendChild(bExport);
   c.appendChild(bar);
+  var flb=lockBanner(a); if(flb) c.appendChild(flb);
 
   var fiche=el('div',{class:'fiche'});
 
@@ -2862,6 +2936,8 @@ function renderFiche(c){
       var when=new Date(e.ts||Date.now()).toLocaleString(EN()?'en-GB':'fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
       var act = e.action==='create'?t('Fiche créée','Sheet created')
               : e.action==='import'?t('Fiche importée','Sheet imported')
+              : e.action==='lock'?t('Fiche verrouillée','Sheet locked')
+              : e.action==='unlock'?t('Fiche déverrouillée','Sheet unlocked')
               : t('Modifiée','Modified')+((e.sections&&e.sections.length)?(' : '+e.sections.map(function(k){ return SECTION_LABELS[k]?(EN()?SECTION_LABELS[k][1]:SECTION_LABELS[k][0]):k; }).join(', ')):'');
       var li=el('li');
       li.innerHTML='<span class="hist-when">'+esc(when)+'</span><span class="hist-user">'+esc(e.user||'-')+'</span><span class="hist-act">'+esc(act)+'</span>';
@@ -2981,6 +3057,7 @@ function normalizeAccount(a){
   if(!Array.isArray(a.tech.managerAccounts)) a.tech.managerAccounts=[];
   if(a.tech.moduleScope!=='zone') a.tech.moduleScope='common';
   if(!a.tech.zoneModules || typeof a.tech.zoneModules!=='object') a.tech.zoneModules={};
+  a.locked=!!a.locked; a.lockedBy=a.lockedBy||''; a.lockedAt=a.lockedAt||0;
   if(a.tech.superAdminName||a.tech.superAdminEmail){ a.tech.managerAccounts.push({name:a.tech.superAdminName||'',email:a.tech.superAdminEmail||'',type:'super'}); }
   delete a.tech.superAdminName; delete a.tech.superAdminEmail;
   // Migration : ancienne liste variableModules -> modules {name, variable:true}
